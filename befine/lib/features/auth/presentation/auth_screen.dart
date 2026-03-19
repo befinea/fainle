@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
+import '../application/auth_service.dart';
 
-class AuthScreen extends StatefulWidget {
+class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -48,12 +50,16 @@ class _AuthScreenState extends State<AuthScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    final response = await _supabase.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
+    // Use the authProvider notifier so the state is always in sync
+    await ref.read(authProvider.notifier).signIn(email, password);
 
-    if (response.user != null && mounted) {
+    final authState = ref.read(authProvider);
+    if (authState.error != null) {
+      _showError(authState.error!);
+      return;
+    }
+
+    if (authState.isAuthenticated && mounted) {
       context.go('/dashboard');
     }
   }

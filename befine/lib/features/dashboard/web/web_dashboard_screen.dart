@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../ui/widgets/atoms.dart';
@@ -326,7 +327,13 @@ class _WebDashboardScreenState extends ConsumerState<WebDashboardScreen> {
                       const SizedBox(height: 8),
                       Text('فريق الدعم الفني متاح دائمًا للإجابة على التساؤلات', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
                       const SizedBox(height: 16),
-                      OutlinedButton(onPressed: (){}, child: const Text('اتصل بالدعم'))
+                      OutlinedButton(
+                        onPressed: () {
+                          final url = Uri.parse('https://wa.me/96407721279418?text=${Uri.encodeComponent('مرحبًا، أحتاج مساعدة في نظام Befine')}');
+                          launchUrl(url, mode: LaunchMode.externalApplication);
+                        },
+                        child: const Text('اتصل بالدعم'),
+                      )
                     ],
                   ),
                 )
