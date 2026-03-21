@@ -93,7 +93,7 @@ class _WarehouseDetailScreenState extends ConsumerState<WarehouseDetailScreen> {
       // Save store categories
       if (categoryIds.isNotEmpty) {
         final rows = categoryIds.map((catId) => {
-          'location_id': storeRes['id'],
+          'store_id': storeRes['id'],
           'category_id': catId,
         }).toList();
         await _supabase.from('store_categories').insert(rows);

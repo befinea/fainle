@@ -23,6 +23,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String _productCount = '...';
   String _lowStockCount = '...';
   String _pendingTasks = '...';
+  String _subscriptionPlan = '';
+  String? _companyId;
   List<Map<String, dynamic>> _recentActivities = [];
   bool _loadingActivities = true;
 
@@ -41,6 +43,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       // Get company_id
       final profile = await _supabase.from('profiles').select('company_id').eq('id', user.id).single();
       final companyId = profile['company_id'] as String;
+      if (mounted) setState(() => _companyId = companyId);
+
+      // Fetch company plan
+      try {
+        final companyData = await _supabase.from('companies').select('subscription_plan').eq('id', companyId).single();
+        if (mounted) {
+          setState(() => _subscriptionPlan = companyData['subscription_plan'] as String? ?? 'free');
+        }
+      } catch (_) {}
 
       // Total Sales
       final salesData = await _supabase
@@ -230,6 +241,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final theme = Theme.of(context);
     final userState = ref.watch(authProvider);
     final userRole = userState.user?.role ?? 'cashier';
+    final isSuperAdmin = _companyId == '00000000-0000-0000-0000-000000000001';
     
     return Scaffold(
       body: Container(
@@ -292,7 +304,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       AppText('مرحباً بك، ${userState.user?.name ?? (userRole == 'supplier' ? 'المورد' : 'المدير')}', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
+                      if (_subscriptionPlan.isNotEmpty && _subscriptionPlan != 'free' && userRole == 'admin') ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: _subscriptionPlan == 'premium'
+                                  ? [Colors.amber.shade600, Colors.orange.shade700]
+                                  : [Colors.blue.shade600, Colors.blue.shade800],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (_subscriptionPlan == 'premium' ? Colors.amber : Colors.blue).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _subscriptionPlan == 'premium' ? Icons.workspace_premium_rounded : Icons.diamond_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _subscriptionPlan == 'premium' ? 'الخطة الذهبية' : 'الخطة الاحترافية',
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
                       AppText('إليك نظرة عامة على النشاط', style: theme.textTheme.bodyMedium, color: AppColors.textSecondaryDark),
                       const SizedBox(height: 24),
 
@@ -324,14 +372,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         crossAxisSpacing: 16,
                         childAspectRatio: 0.85,
                         children: [
-                          if (userRole != 'supplier')
+                          if (userRole != 'supplier' && isSuperAdmin)
                             _QuickAction(icon: Icons.add_box_rounded, label: 'إضافة مورد', color: AppColors.primary, onTap: () => context.push('/operations/suppliers/create')),
                           _QuickAction(icon: Icons.point_of_sale, label: 'بيع', color: AppColors.success, onTap: () => context.go('/pos')),
                           _QuickAction(icon: Icons.download_rounded, label: 'وارد', color: Colors.blue, onTap: () => context.push('/operations/transaction/create?type=import')),
                           _QuickAction(icon: Icons.upload_rounded, label: 'صادر', color: Colors.orange, onTap: () => context.push('/operations/transaction/create?type=export')),
                           if (userRole != 'supplier')
                             _QuickAction(icon: Icons.swap_horiz, label: 'نقل', color: Colors.purple, onTap: () => context.push('/operations/transaction/create?type=transfer')),
-                          if (userRole != 'supplier')
+                          if (userRole != 'supplier' && isSuperAdmin)
                             _QuickAction(icon: Icons.people_alt, label: 'موردون', color: Colors.teal, onTap: () => context.go('/operations?tab=suppliers')),
                           _QuickAction(icon: Icons.print_rounded, label: 'طباعة BC', color: Colors.indigo, onTap: () => context.push('/barcode-print')),
                           _QuickAction(icon: Icons.analytics_rounded, label: 'تقارير', color: Colors.brown, onTap: () => context.go('/reports')),

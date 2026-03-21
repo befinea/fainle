@@ -17,6 +17,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _supabase = Supabase.instance.client;
   Map<String, dynamic>? _profile;
+  String? _companyName;
+  String? _subscriptionPlan;
   bool _loading = true;
 
   @override
@@ -35,6 +37,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           .select('full_name, phone_number, role, company_id')
           .eq('id', user.id)
           .single();
+
+      // Load company name
+      try {
+        if (data['company_id'] != null) {
+          final companyData = await _supabase
+              .from('companies')
+              .select('name, subscription_plan')
+              .eq('id', data['company_id'])
+              .single();
+          _companyName = companyData['name'] as String?;
+          _subscriptionPlan = companyData['subscription_plan'] as String?;
+        }
+      } catch (_) {}
 
       if (mounted) {
         setState(() {
@@ -74,9 +89,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _roleLabel(String? role) {
     switch (role) {
       case 'admin': return 'مدير';
-      case 'store_owner': return 'صاحب متجر';
+      case 'store_manager': return 'مدير متجر';
       case 'supplier': return 'مورد';
-      case 'warehouse_manager': return 'مدير مخزن';
+      case 'warehouse_worker': return 'عامل مخزن';
+      case 'cashier': return 'كاشير';
       default: return role ?? 'غير محدد';
     }
   }
@@ -90,6 +106,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final userState = ref.watch(authProvider);
     final user = userState.user;
     final isSupplier = user?.role == 'supplier';
+    final isAdmin = user?.role == 'admin' || _profile?['role'] == 'admin';
 
     return Scaffold(
       appBar: AppBar(
@@ -188,6 +205,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           _InfoRow(icon: Icons.phone_outlined, label: 'رقم الهاتف', value: _profile?['phone_number'] as String? ?? 'غير محدد'),
                           const SizedBox(height: 12),
                           _InfoRow(icon: Icons.badge_outlined, label: 'الصلاحية', value: _roleLabel(user?.role ?? _profile?['role'] as String?)),
+                          if (_companyName != null) ...[
+                            const SizedBox(height: 12),
+                            _InfoRow(icon: Icons.business_rounded, label: 'الشركة', value: _companyName!),
+                          ],
                         ],
                       ),
                     ),
@@ -230,6 +251,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: 'إدارة الأصناف',
                         subtitle: 'إضافة وتعديل أصناف المنتجات',
                         onTap: () => context.push('/settings/categories'),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // --- Admin-only sections ---
+                    if (isAdmin) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12, top: 12),
+                        child: Text('إدارة الشركة', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
+                      ),
+
+                      // Warehouse Management (Only for Premium/Gold plan)
+                      if (_subscriptionPlan == 'premium') ...[
+                        _SettingsTile(
+                          icon: Icons.warehouse_rounded,
+                          color: Colors.amber.shade700,
+                          title: 'إدارة المخازن',
+                          subtitle: 'إضافة مخازن خاصة بك وإدارتها',
+                          onTap: () => context.push('/inventory'),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
+                      // Employee Management
+                      _SettingsTile(
+                        icon: Icons.people_rounded,
+                        color: Colors.blue,
+                        title: 'إدارة الموظفين',
+                        subtitle: 'دعوة موظفين جدد وإدارة الصلاحيات',
+                        onTap: () => context.push('/settings/employees'),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Company Management (Super Admin only — platform admin)
+                      if (_profile?['company_id'] == '00000000-0000-0000-0000-000000000001') ...[
+                        _SettingsTile(
+                          icon: Icons.business_center_rounded,
+                          color: Colors.deepPurple,
+                          title: 'إدارة الشركات',
+                          subtitle: 'عرض وإدارة جميع الشركات المسجلة',
+                          onTap: () => context.push('/settings/companies'),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      // Audit Log
+                      _SettingsTile(
+                        icon: Icons.history_rounded,
+                        color: Colors.orange,
+                        title: 'سجل النشاطات',
+                        subtitle: 'متابعة كل الحركات والعمليات',
+                        onTap: () => context.push('/settings/audit-log'),
                       ),
                       const SizedBox(height: 12),
                     ],

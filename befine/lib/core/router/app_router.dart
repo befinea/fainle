@@ -3,10 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/presentation/auth_screen.dart';
+import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/inventory/inventory_screen.dart';
 import '../../features/inventory/warehouse_detail_screen.dart';
 import '../../features/inventory/store_detail_screen.dart';
+import '../../features/inventory/stores_list_screen.dart';
 import '../../features/pos/pos_screen.dart';
 import '../../features/operations/operations_screen.dart';
 import '../../features/operations/transaction_create_screen.dart';
@@ -15,11 +17,15 @@ import '../../features/reports/reports_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/settings/categories_screen.dart';
+import '../../features/settings/company_management_screen.dart';
+import '../../features/settings/employee_invites_screen.dart';
+import '../../features/settings/audit_log_screen.dart';
+import '../../features/settings/subscription_plans_screen.dart';
 import '../../features/barcode/scanner_screen.dart';
 import '../../features/barcode/barcode_print_screen.dart';
 import '../../ui/screens/main_shell.dart';
 import '../responsive/responsive_layout.dart';
-import '../../ui/screens/web_shell.dart'; // Added import for WebShell
+import '../../ui/screens/web_shell.dart';
 
 import '../../features/dashboard/web/web_dashboard_screen.dart';
 
@@ -28,19 +34,19 @@ class AppRouter {
     initialLocation: '/auth',
 
     // Auth-aware redirect
-    redirect: (context, state) {
+    redirect: (context, state) async {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
       final isAuthPage = state.uri.toString() == '/auth';
-
-      if (isLoggedIn && isAuthPage) {
-        // Already logged in → go to dashboard
-        return '/dashboard';
-      }
       if (!isLoggedIn && !isAuthPage) {
         // Not logged in → go to auth
         return '/auth';
       }
+
+      if (isLoggedIn && isAuthPage) {
+        return '/dashboard';
+      }
+
       return null; // No redirect needed
     },
 
@@ -49,6 +55,12 @@ class AppRouter {
       GoRoute(
         path: '/auth',
         builder: (context, state) => const AuthScreen(),
+      ),
+
+      // Onboarding (First time company setup)
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
 
       // Main App Shell with Responsive Navigation
@@ -81,6 +93,19 @@ class AppRouter {
                 builder: (context, state) => StoreDetailScreen(
                   storeId: state.pathParameters['id']!,
                   storeName: state.extra as String? ?? 'متجر غير معروف',
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/stores',
+            builder: (context, state) => const StoresListScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                builder: (context, state) => StoreDetailScreen(
+                  storeId: state.pathParameters['id']!,
+                  storeName: state.extra as String? ?? 'متجر',
                 ),
               ),
             ],
@@ -130,6 +155,22 @@ class AppRouter {
               GoRoute(
                 path: 'categories',
                 builder: (context, state) => const CategoriesScreen(),
+              ),
+              GoRoute(
+                path: 'companies',
+                builder: (context, state) => const CompanyManagementScreen(),
+              ),
+              GoRoute(
+                path: 'employees',
+                builder: (context, state) => const EmployeeInvitesScreen(),
+              ),
+              GoRoute(
+                path: 'audit-log',
+                builder: (context, state) => const AuditLogScreen(),
+              ),
+              GoRoute(
+                path: 'plans',
+                builder: (context, state) => const SubscriptionPlansScreen(),
               ),
             ],
           ),

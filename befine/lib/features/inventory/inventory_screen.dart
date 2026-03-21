@@ -35,10 +35,17 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       final profileState = ref.read(authProvider);
       if (profileState.user?.role != 'supplier') return; // Only relevant for suppliers
 
-      final data = await _supabase.from('profile_locations').select('location_id').eq('profile_id', user.id);
-      if (mounted) {
+      final data = await _supabase.from('profiles').select('store_id').eq('id', user.id).single();
+      final storeId = data['store_id'] as String?;
+      if (storeId == null) return;
+
+      final locData = await _supabase.from('locations').select('id, type, parent_id').eq('id', storeId).single();
+      final type = locData['type'];
+      final assignedWh = type == 'warehouse' ? locData['id'] : locData['parent_id'];
+
+      if (assignedWh != null && mounted) {
         setState(() {
-          _assignedWarehouseIds = Set<String>.from(data.map((e) => e['location_id'] as String));
+          _assignedWarehouseIds = {assignedWh as String};
         });
       }
     } catch (e) {

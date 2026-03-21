@@ -23,6 +23,11 @@ class AuthRepository {
       json['email'] = user.email ?? '';
       json['name'] = profileData['full_name'];
 
+      // Ensure platform admins get the correct internal role for routing, but don't elevate suppliers or cashiers in that company.
+      if (profileData['company_id'] == '00000000-0000-0000-0000-000000000001' && profileData['role'] == 'admin') {
+        json['role'] = 'super_admin';
+      }
+
       return AppUser.fromJson(json);
     } catch (e) {
       throw ServerException('Failed to get user profile: $e');
@@ -49,6 +54,11 @@ class AuthRepository {
       final json = Map<String, dynamic>.from(profileResponse);
       json['email'] = response.user!.email ?? '';
       json['name'] = profileResponse['full_name'];
+
+      // Ensure platform admins get the correct internal role for routing, but don't elevate suppliers or cashiers in that company.
+      if (profileResponse['company_id'] == '00000000-0000-0000-0000-000000000001' && profileResponse['role'] == 'admin') {
+        json['role'] = 'super_admin';
+      }
 
       return AppUser.fromJson(json);
     } on AuthException catch (e) {

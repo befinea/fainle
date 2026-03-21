@@ -1,23 +1,109 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
+import '../../features/auth/application/auth_service.dart';
 
-class MainShell extends StatelessWidget {
+class MainShell extends ConsumerWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
 
-  int _calcIndex(String location) {
-    if (location.startsWith('/inventory')) return 1;
-    if (location.startsWith('/pos')) return 2;
+  int _calcIndex(String location, String role) {
+    if (role == 'super_admin') {
+      if (location.startsWith('/pos')) return 1;
+      if (location.startsWith('/inventory')) return 2;
+      if (location.startsWith('/operations')) return 3;
+      if (location.startsWith('/reports')) return 4;
+      return 0;
+    }
+    if (role == 'cashier') {
+      if (location.startsWith('/pos')) return 1;
+      return 0;
+    }
+    if (role == 'warehouse_worker') {
+      if (location.startsWith('/inventory')) return 1;
+      return 0;
+    }
+    if (role == 'supplier') {
+      if (location.startsWith('/pos')) return 1;
+      if (location.startsWith('/inventory')) return 2;
+      if (location.startsWith('/operations')) return 3;
+      return 0;
+    }
+    // Admin (company owner): Dashboard, Stores, Employees, Operations, Reports
+    if (location.startsWith('/stores')) return 1;
+    if (location.startsWith('/employees') || location.startsWith('/settings/employees')) return 2;
     if (location.startsWith('/operations')) return 3;
     if (location.startsWith('/reports')) return 4;
-    return 0; // dashboard
+    return 0;
+  }
+
+  List<NavigationDestination> _getDestinations(String role) {
+    if (role == 'super_admin') {
+      return const [
+        NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
+        NavigationDestination(icon: Icon(Icons.point_of_sale_rounded), label: 'المبيعات'),
+        NavigationDestination(icon: Icon(Icons.inventory_2_rounded), label: 'المخزون'),
+        NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'),
+        NavigationDestination(icon: Icon(Icons.analytics_rounded), label: 'التقارير'),
+      ];
+    }
+    if (role == 'cashier') {
+      return const [
+        NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
+        NavigationDestination(icon: Icon(Icons.point_of_sale_rounded), label: 'الكاشير'),
+      ];
+    }
+    if (role == 'warehouse_worker') {
+      return const [
+        NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
+        NavigationDestination(icon: Icon(Icons.warehouse_rounded), label: 'المخزون'),
+      ];
+    }
+    if (role == 'supplier') {
+      return const [
+        NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
+        NavigationDestination(icon: Icon(Icons.point_of_sale_rounded), label: 'المبيعات'),
+        NavigationDestination(icon: Icon(Icons.inventory_2_rounded), label: 'المخزون'),
+        NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'),
+      ];
+    }
+    // Admin / company owner
+    return const [
+      NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
+      NavigationDestination(icon: Icon(Icons.store_rounded), label: 'المتاجر'),
+      NavigationDestination(icon: Icon(Icons.people_rounded), label: 'الموظفين'),
+      NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'),
+      NavigationDestination(icon: Icon(Icons.analytics_rounded), label: 'التقارير'),
+    ];
+  }
+
+  List<String> _getRoutes(String role) {
+    if (role == 'super_admin') {
+      return ['/dashboard', '/pos', '/inventory', '/operations', '/reports'];
+    }
+    if (role == 'cashier') {
+      return ['/dashboard', '/pos'];
+    }
+    if (role == 'warehouse_worker') {
+      return ['/dashboard', '/inventory'];
+    }
+    if (role == 'supplier') {
+      return ['/dashboard', '/pos', '/inventory', '/operations'];
+    }
+    // Admin / company owner
+    return ['/dashboard', '/stores', '/settings/employees', '/operations', '/reports'];
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.toString();
-    final currentIndex = _calcIndex(location);
+    final userState = ref.watch(authProvider);
+    final role = userState.user?.role ?? 'cashier';
+
+    final destinations = _getDestinations(role);
+    final routes = _getRoutes(role);
+    final currentIndex = _calcIndex(location, role).clamp(0, destinations.length - 1);
 
     return Scaffold(
       body: child,
@@ -29,9 +115,8 @@ class MainShell extends StatelessWidget {
         mini: true,
         child: const Icon(Icons.qr_code_scanner_rounded, size: 22, color: Colors.white),
       ),
-// main_shell.dart
       floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
-      extendBody: false, // Safely layout content above the navigation bar
+      extendBody: false,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
@@ -45,19 +130,14 @@ class MainShell extends StatelessWidget {
         child: NavigationBar(
           selectedIndex: currentIndex,
           onDestinationSelected: (index) {
-            const routes = ['/dashboard', '/inventory', '/pos', '/operations', '/reports'];
-            context.go(routes[index]);
+            if (index < routes.length) {
+              context.go(routes[index]);
+            }
           },
           height: 70,
           backgroundColor: Theme.of(context).colorScheme.surface,
           indicatorColor: AppColors.primary.withOpacity(0.15),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
-            NavigationDestination(icon: Icon(Icons.warehouse_rounded), label: 'المخزون'),
-            NavigationDestination(icon: Icon(Icons.point_of_sale_rounded), label: 'الكاشير'),
-            NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'),
-            NavigationDestination(icon: Icon(Icons.analytics_rounded), label: 'التقارير'),
-          ],
+          destinations: destinations,
         ),
       ),
     );

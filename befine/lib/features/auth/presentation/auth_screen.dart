@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
 import '../application/auth_service.dart';
 
@@ -46,6 +47,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
+  void _showSuccess(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   Future<void> _signIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -70,7 +83,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final fullName = _fullNameController.text.trim();
     final companyName = _companyNameController.text.trim();
 
-    // 1. Create the auth user
+    // 1. Check if there is an invitation for this email
+    Map<String, dynamic>? invitation;
+    try {
+      final invData = await _supabase
+          .from('company_invitations')
+          .select('*')
+          .eq('invited_email', email)
+          .eq('status', 'pending')
+          .maybeSingle();
+      invitation = invData;
+    } catch (_) {}
+
+    // 2. Create the auth user
     final response = await _supabase.auth.signUp(
       email: email,
       password: password,
@@ -82,25 +107,80 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       return;
     }
 
-    // 2. Create a company
-    final companyResponse = await _supabase
-        .from('companies')
-        .insert({'name': companyName})
-        .select('id')
-        .single();
+    if (invitation != null) {
+      // Join existing company via invitation
+      final invCompanyId = invitation['company_id'] as String;
+      final invRole = invitation['role'] as String? ?? 'cashier';
+      final invStoreId = invitation['store_id'] as String?;
+      final invCustomRole = invitation['custom_role_name'] as String?;
 
-    final companyId = companyResponse['id'] as String;
+      await _supabase.from('profiles').insert({
+        'id': user.id,
+        'company_id': invCompanyId,
+        'full_name': fullName.isNotEmpty ? fullName : email.split('@').first,
+        'role': invRole,
+        if (invStoreId != null) 'store_id': invStoreId,
+        if (invCustomRole != null) 'custom_role_name': invCustomRole,
+      });
 
-    // 3. Create the admin profile linked to the company
-    await _supabase.from('profiles').insert({
-      'id': user.id,
-      'company_id': companyId,
-      'full_name': fullName,
-      'role': 'admin',
-    });
+      // Mark invitation as accepted
+      await _supabase
+          .from('company_invitations')
+          .update({'status': 'accepted'})
+          .eq('id', invitation['id']);
 
-    if (mounted) {
-      context.go('/dashboard');
+      // Audit log
+      await _supabase.from('audit_logs').insert({
+        'company_id': invCompanyId,
+        'user_id': user.id,
+        'action': 'employee_joined',
+        'entity_type': 'profile',
+        'details': {'email': email, 'role': invRole, 'store_id': invStoreId},
+      });
+
+      _showSuccess('تم الانضمام إلى الشركة بنجاح!');
+      if (mounted) context.go('/dashboard');
+    } else {
+      // Create a new company
+      if (companyName.isEmpty) {
+        _showError('أدخل اسم الشركة');
+        return;
+      }
+
+      // Extract email domain for auto-join
+      final emailDomain = email.contains('@') ? email.split('@').last : null;
+
+      final companyId = const Uuid().v4();
+
+      await _supabase
+          .from('companies')
+          .insert({
+            'id': companyId,
+            'name': companyName,
+            'email_domain': emailDomain,
+          });
+
+      // Create the admin profile linked to the company
+      await _supabase.from('profiles').insert({
+        'id': user.id,
+        'company_id': companyId,
+        'full_name': fullName,
+        'role': 'admin',
+      });
+
+      // Audit log
+      await _supabase.from('audit_logs').insert({
+        'company_id': companyId,
+        'user_id': user.id,
+        'action': 'company_created',
+        'entity_type': 'company',
+        'entity_id': companyId,
+        'details': {'name': companyName},
+      });
+
+      if (mounted) {
+        context.go('/onboarding');
+      }
     }
   }
 
@@ -139,10 +219,26 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Logo
-                  Icon(
-                    Icons.inventory_2_rounded,
-                    size: 80,
-                    color: theme.colorScheme.primary,
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryVariant],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.inventory_2_rounded,
+                      size: 48,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -154,7 +250,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   Text(
                     _isLogin
                         ? 'سجّل دخولك لإدارة مخازنك ومبيعاتك'
-                        : 'سجّل شركتك للبدء باستخدام النظام',
+                        : 'سجّل شركتك للبدء باستخدام النظام\nأو سجّل بدعوة من شركتك',
                     style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade400),
                     textAlign: TextAlign.center,
                   ),
@@ -171,9 +267,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           _buildField(
                             controller: _companyNameController,
                             label: 'اسم الشركة',
-                            hint: 'مثال: شركة الفضاء للتجارة',
+                            hint: 'اتركه فارغاً إذا لديك دعوة',
                             icon: Icons.business,
-                            validator: (v) => v!.isEmpty ? 'مطلوب' : null,
+                            validator: null, // Optional — invitation-based users don't need this
                           ),
                           const SizedBox(height: 16),
                           _buildField(

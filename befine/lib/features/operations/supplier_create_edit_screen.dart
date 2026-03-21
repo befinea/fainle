@@ -72,19 +72,13 @@ class _SupplierCreateEditScreenState extends State<SupplierCreateEditScreen> {
         final id = widget.supplierId!;
         final profile = await _supabase
             .from('profiles')
-            .select('id, full_name, phone_number')
+            .select('id, full_name, phone_number, store_id')
             .eq('id', id)
             .single();
 
         _nameCtrl.text = profile['full_name'] as String? ?? '';
         _phoneCtrl.text = profile['phone_number'] as String? ?? '';
-
-        final loc = await _supabase
-            .from('profile_locations')
-            .select('location_id')
-            .eq('profile_id', id)
-            .maybeSingle();
-        _selectedWarehouseId = loc?['location_id'] as String?;
+        _selectedWarehouseId = profile['store_id'] as String?;
       } else {
         _selectedWarehouseId = _warehouses.isNotEmpty ? _warehouses.first['id'] as String : null;
       }
@@ -112,13 +106,8 @@ class _SupplierCreateEditScreenState extends State<SupplierCreateEditScreen> {
         await _supabase.from('profiles').update({
           'full_name': _nameCtrl.text.trim(),
           'phone_number': _phoneCtrl.text.trim(),
+          'store_id': _selectedWarehouseId,
         }).eq('id', id);
-
-        await _supabase.from('profile_locations').delete().eq('profile_id', id);
-        await _supabase.from('profile_locations').insert({
-          'profile_id': id,
-          'location_id': _selectedWarehouseId,
-        });
       } else {
         final serviceRoleKey = dotenv.env['SUPABASE_SERVICE_ROLE_KEY'] ?? '';
         final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
@@ -145,11 +134,7 @@ class _SupplierCreateEditScreenState extends State<SupplierCreateEditScreen> {
           'full_name': _nameCtrl.text.trim(),
           'role': 'supplier',
           'phone_number': _phoneCtrl.text.trim(),
-        });
-
-        await adminClient.from('profile_locations').insert({
-          'profile_id': newUserId,
-          'location_id': _selectedWarehouseId,
+          'store_id': _selectedWarehouseId,
         });
 
         adminClient.dispose();
