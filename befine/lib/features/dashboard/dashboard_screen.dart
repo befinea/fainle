@@ -298,143 +298,159 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      AppText('مرحباً بك، ${userState.user?.name ?? (userRole == 'supplier' ? 'المورد' : 'المدير')}', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 6),
-                      if (_subscriptionPlan.isNotEmpty && _subscriptionPlan != 'free' && userRole == 'admin') ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: _subscriptionPlan == 'premium'
-                                  ? [Colors.amber.shade600, Colors.orange.shade700]
-                                  : [Colors.blue.shade600, Colors.blue.shade800],
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (_subscriptionPlan == 'premium' ? Colors.amber : Colors.blue).withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth > 800;
+                    final statColumns = isWide ? 4 : 2;
+                    final statAspect = isWide ? 2.0 : 1.4;
+                    final actionColumns = isWide ? 6 : 4;
+                    final actionAspect = isWide ? 1.2 : 0.85;
+                    final maxWidth = isWide ? 1200.0 : double.infinity;
+
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        child: Padding(
+                          padding: EdgeInsets.all(isWide ? 32 : 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                _subscriptionPlan == 'premium' ? Icons.workspace_premium_rounded : Icons.diamond_rounded,
-                                color: Colors.white,
-                                size: 16,
+                              AppText('مرحباً بك، ${userState.user?.name ?? (userRole == 'supplier' ? 'المورد' : 'المدير')}', style: theme.textTheme.titleMedium),
+                              const SizedBox(height: 6),
+                              if (_subscriptionPlan.isNotEmpty && _subscriptionPlan != 'free' && userRole == 'admin') ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: _subscriptionPlan == 'premium'
+                                          ? [Colors.amber.shade600, Colors.orange.shade700]
+                                          : [Colors.blue.shade600, Colors.blue.shade800],
+                                    ),
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: (_subscriptionPlan == 'premium' ? Colors.amber : Colors.blue).withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _subscriptionPlan == 'premium' ? Icons.workspace_premium_rounded : Icons.diamond_rounded,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _subscriptionPlan == 'premium' ? 'الخطة الذهبية' : 'الخطة الاحترافية',
+                                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                              ],
+                              AppText('إليك نظرة عامة على النشاط', style: theme.textTheme.bodyMedium, color: AppColors.textSecondaryDark),
+                              const SizedBox(height: 24),
+
+                              // Stats Grid — responsive
+                              GridView.count(
+                                crossAxisCount: statColumns,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                mainAxisSpacing: 16,
+                                crossAxisSpacing: 16,
+                                childAspectRatio: statAspect,
+                                children: [
+                                  _StatCard(title: 'إجمالي المبيعات', value: _totalSales, icon: Icons.attach_money, color: AppColors.primary),
+                                  _StatCard(title: 'المنتجات', value: _productCount, icon: Icons.inventory_2, color: AppColors.secondary),
+                                  _StatCard(title: 'مخزون منخفض', value: _lowStockCount, icon: Icons.warning_amber, color: AppColors.error),
+                                  _StatCard(title: 'مهام معلقة', value: _pendingTasks, icon: Icons.task_alt, color: AppColors.success),
+                                ],
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _subscriptionPlan == 'premium' ? 'الخطة الذهبية' : 'الخطة الاحترافية',
-                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+
+                              const SizedBox(height: 32),
+
+                              AppText('إجراءات سريعة', style: theme.textTheme.titleMedium),
+                              const SizedBox(height: 16),
+                              GridView.count(
+                                crossAxisCount: actionColumns,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                mainAxisSpacing: 16,
+                                crossAxisSpacing: 16,
+                                childAspectRatio: actionAspect,
+                                children: [
+                                  if (userRole != 'supplier' && isSuperAdmin)
+                                    _QuickAction(icon: Icons.add_box_rounded, label: 'إضافة مورد', color: AppColors.primary, onTap: () => context.push('/operations/suppliers/create')),
+                                  _QuickAction(icon: Icons.point_of_sale, label: 'بيع', color: AppColors.success, onTap: () => context.go('/pos')),
+                                  _QuickAction(icon: Icons.download_rounded, label: 'وارد', color: Colors.blue, onTap: () => context.push('/operations/transaction/create?type=import')),
+                                  _QuickAction(icon: Icons.upload_rounded, label: 'صادر', color: Colors.orange, onTap: () => context.push('/operations/transaction/create?type=export')),
+                                  if (userRole != 'supplier')
+                                    _QuickAction(icon: Icons.swap_horiz, label: 'نقل', color: Colors.purple, onTap: () => context.push('/operations/transaction/create?type=transfer')),
+                                  if (userRole != 'supplier' && isSuperAdmin)
+                                    _QuickAction(icon: Icons.people_alt, label: 'موردون', color: Colors.teal, onTap: () => context.go('/operations?tab=suppliers')),
+                                  _QuickAction(icon: Icons.print_rounded, label: 'طباعة BC', color: Colors.indigo, onTap: () => context.push('/barcode-print')),
+                                  _QuickAction(icon: Icons.analytics_rounded, label: 'تقارير', color: Colors.brown, onTap: () => context.go('/reports')),
+                                ],
                               ),
+
+                              const SizedBox(height: 32),
+
+                              AppText('آخر النشاطات', style: theme.textTheme.titleMedium),
+                              const SizedBox(height: 16),
+
+                              // REAL ACTIVITIES
+                              if (_loadingActivities)
+                                const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                              else if (_recentActivities.isEmpty)
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(32),
+                                    child: Column(
+                                      children: [
+                                        Icon(Icons.inbox_rounded, size: 48, color: Colors.grey.shade400),
+                                        const SizedBox(height: 12),
+                                        Text('لا توجد نشاطات بعد', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                ...List.generate(_recentActivities.length, (i) {
+                                  final tx = _recentActivities[i];
+                                  final type = tx['type'] as String? ?? 'sale';
+                                  final amount = (tx['total_amount'] as num?)?.toDouble() ?? 0;
+                                  final locationName = tx['location_name'] as String? ?? '';
+                                  final performedBy = tx['performed_by'] as String? ?? '';
+                                  final createdAt = tx['created_at'] as String? ?? '';
+                                  final timeStr = _formatTime12h(createdAt);
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: AnimatedGlassCard(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      onTap: () {},
+                                      child: _ActivityTile(
+                                        title: '${_typeLabel(type)} ${amount > 0 ? '• ${amount.toStringAsFixed(0)} د' : ''}',
+                                        subtitle: '$locationName ${performedBy.isNotEmpty ? '• $performedBy' : ''} ${timeStr.isNotEmpty ? '• $timeStr' : ''}',
+                                        icon: _typeIcon(type),
+                                        color: _typeColor(type),
+                                      ),
+                                    ),
+                                  );
+                                }),
+
+                              const SizedBox(height: 100), // FAB spacing
                             ],
                           ),
                         ),
-                        const SizedBox(height: 6),
-                      ],
-                      AppText('إليك نظرة عامة على النشاط', style: theme.textTheme.bodyMedium, color: AppColors.textSecondaryDark),
-                      const SizedBox(height: 24),
-
-                      // Stats Grid — REAL DATA
-                      GridView.count(
-                        crossAxisCount: 2,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 1.4,
-                        children: [
-                          _StatCard(title: 'إجمالي المبيعات', value: _totalSales, icon: Icons.attach_money, color: AppColors.primary),
-                          _StatCard(title: 'المنتجات', value: _productCount, icon: Icons.inventory_2, color: AppColors.secondary),
-                          _StatCard(title: 'مخزون منخفض', value: _lowStockCount, icon: Icons.warning_amber, color: AppColors.error),
-                          _StatCard(title: 'مهام معلقة', value: _pendingTasks, icon: Icons.task_alt, color: AppColors.success),
-                        ],
                       ),
-
-                      const SizedBox(height: 32),
-
-                      AppText('إجراءات سريعة', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 16),
-                      GridView.count(
-                        crossAxisCount: 4,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 0.85,
-                        children: [
-                          if (userRole != 'supplier' && isSuperAdmin)
-                            _QuickAction(icon: Icons.add_box_rounded, label: 'إضافة مورد', color: AppColors.primary, onTap: () => context.push('/operations/suppliers/create')),
-                          _QuickAction(icon: Icons.point_of_sale, label: 'بيع', color: AppColors.success, onTap: () => context.go('/pos')),
-                          _QuickAction(icon: Icons.download_rounded, label: 'وارد', color: Colors.blue, onTap: () => context.push('/operations/transaction/create?type=import')),
-                          _QuickAction(icon: Icons.upload_rounded, label: 'صادر', color: Colors.orange, onTap: () => context.push('/operations/transaction/create?type=export')),
-                          if (userRole != 'supplier')
-                            _QuickAction(icon: Icons.swap_horiz, label: 'نقل', color: Colors.purple, onTap: () => context.push('/operations/transaction/create?type=transfer')),
-                          if (userRole != 'supplier' && isSuperAdmin)
-                            _QuickAction(icon: Icons.people_alt, label: 'موردون', color: Colors.teal, onTap: () => context.go('/operations?tab=suppliers')),
-                          _QuickAction(icon: Icons.print_rounded, label: 'طباعة BC', color: Colors.indigo, onTap: () => context.push('/barcode-print')),
-                          _QuickAction(icon: Icons.analytics_rounded, label: 'تقارير', color: Colors.brown, onTap: () => context.go('/reports')),
-                        ],
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      AppText('آخر النشاطات', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 16),
-
-                      // REAL ACTIVITIES
-                      if (_loadingActivities)
-                        const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
-                      else if (_recentActivities.isEmpty)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Column(
-                              children: [
-                                Icon(Icons.inbox_rounded, size: 48, color: Colors.grey.shade400),
-                                const SizedBox(height: 12),
-                                Text('لا توجد نشاطات بعد', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
-                              ],
-                            ),
-                          ),
-                        )
-                      else
-                        ...List.generate(_recentActivities.length, (i) {
-                          final tx = _recentActivities[i];
-                          final type = tx['type'] as String? ?? 'sale';
-                          final amount = (tx['total_amount'] as num?)?.toDouble() ?? 0;
-                          final locationName = tx['location_name'] as String? ?? '';
-                          final performedBy = tx['performed_by'] as String? ?? '';
-                          final createdAt = tx['created_at'] as String? ?? '';
-                          final timeStr = _formatTime12h(createdAt);
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: AnimatedGlassCard(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              onTap: () {},
-                              child: _ActivityTile(
-                                title: '${_typeLabel(type)} ${amount > 0 ? '• ${amount.toStringAsFixed(0)} د' : ''}',
-                                subtitle: '$locationName ${performedBy.isNotEmpty ? '• $performedBy' : ''} ${timeStr.isNotEmpty ? '• $timeStr' : ''}',
-                                icon: _typeIcon(type),
-                                color: _typeColor(type),
-                              ),
-                            ),
-                          );
-                        }),
-
-                      const SizedBox(height: 100), // FAB spacing
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -454,26 +470,30 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedGlassCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       onTap: () {},
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
-                child: Icon(icon, color: color, size: 24),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: color, size: 20),
               ),
-              Icon(Icons.arrow_outward_rounded, color: Colors.grey.withOpacity(0.5), size: 18),
+              Icon(Icons.arrow_outward_rounded, color: Colors.grey.withOpacity(0.5), size: 16),
             ],
           ),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(title, style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 2),
+          Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );

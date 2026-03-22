@@ -170,6 +170,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final isSupplier = userState.user?.role == 'supplier';
 
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: isSupplier ? null : FloatingActionButton.extended(
         heroTag: 'add_warehouse_fab',
         onPressed: _showAddDialog,

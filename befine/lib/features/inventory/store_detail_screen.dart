@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../ui/widgets/animated_glass_card.dart';
 
@@ -120,6 +121,11 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
 
                       final productRes = await _supabase.from('products').insert(productData).select().single();
 
+                      // Auto-generate SKU for barcode
+                      final ts = DateTime.now().millisecondsSinceEpoch % 1000000;
+                      final sku = 'BF-${ts.toString().padLeft(6, '0')}';
+                      await _supabase.from('products').update({'generated_sku': sku}).eq('id', productRes['id']);
+
                       await _supabase.from('stock_levels').insert({
                         'location_id': widget.storeId,
                         'product_id': productRes['id'],
@@ -204,7 +210,12 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: AnimatedGlassCard(
                             padding: const EdgeInsets.all(16),
-                            onTap: () {},
+                            onTap: () {
+                              context.push(
+                                '/product/${product['id']}',
+                                extra: {'storeId': widget.storeId},
+                              );
+                            },
                             child: Row(
                               children: [
                                 Container(

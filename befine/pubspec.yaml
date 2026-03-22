@@ -49,6 +49,9 @@ dependencies:
   url_launcher: ^6.2.5
   mobile_scanner: ^6.0.2
   uuid: ^4.5.3
+  google_generative_ai: ^0.4.6  
+  http: ^1.2.1
+  barcode: ^2.2.8
 
 dev_dependencies:
   flutter_test:

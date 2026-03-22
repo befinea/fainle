@@ -432,6 +432,7 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
     final theme = Theme.of(context);
 
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       appBar: AppBar(
         title: const Text('إدارة الشركات', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,

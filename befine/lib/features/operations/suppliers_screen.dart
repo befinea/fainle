@@ -77,7 +77,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     final theme = Theme.of(context);
     
     return Scaffold(
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

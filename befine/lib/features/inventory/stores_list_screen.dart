@@ -292,6 +292,7 @@ class _StoresListScreenState extends State<StoresListScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       appBar: AppBar(
         title: const Text('متاجري', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,

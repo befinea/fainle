@@ -8,6 +8,7 @@ import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/inventory/inventory_screen.dart';
 import '../../features/inventory/warehouse_detail_screen.dart';
 import '../../features/inventory/store_detail_screen.dart';
+import '../../features/inventory/product_detail_screen.dart';
 import '../../features/inventory/stores_list_screen.dart';
 import '../../features/pos/pos_screen.dart';
 import '../../features/operations/operations_screen.dart';
@@ -22,12 +23,10 @@ import '../../features/settings/employee_invites_screen.dart';
 import '../../features/settings/audit_log_screen.dart';
 import '../../features/settings/subscription_plans_screen.dart';
 import '../../features/barcode/scanner_screen.dart';
+import '../../features/ai_assistant/presentation/ai_assistant_screen.dart';
 import '../../features/barcode/barcode_print_screen.dart';
 import '../../ui/screens/main_shell.dart';
-import '../responsive/responsive_layout.dart';
 import '../../ui/screens/web_shell.dart';
-
-import '../../features/dashboard/web/web_dashboard_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -65,17 +64,18 @@ class AppRouter {
 
       // Main App Shell with Responsive Navigation
       ShellRoute(
-        builder: (context, state, child) => ResponsiveLayout(
-          mobileShell: MainShell(child: child),
-          webShell: WebShell(child: child),
-        ),
+        builder: (context, state, child) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          if (screenWidth > 800) {
+            return WebShell(child: child);
+          } else {
+            return MainShell(child: child);
+          }
+        },
         routes: [
           GoRoute(
             path: '/dashboard',
-            builder: (context, state) => const ResponsiveLayout(
-              mobileShell: DashboardScreen(),
-              webShell: WebDashboardScreen(),
-            ),
+            builder: (context, state) => const DashboardScreen(),
           ),
           GoRoute(
             path: '/inventory',
@@ -187,6 +187,24 @@ class AppRouter {
       GoRoute(
         path: '/barcode-print',
         builder: (context, state) => const BarcodePrintScreen(),
+      ),
+
+      // AI Assistant (full screen)
+      GoRoute(
+        path: '/ai-assistant',
+        builder: (context, state) => const AiAssistantScreen(),
+      ),
+
+      // Product Detail (full screen)
+      GoRoute(
+        path: '/product/:id',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return ProductDetailScreen(
+            productId: state.pathParameters['id']!,
+            storeId: extra?['storeId'] as String?,
+          );
+        },
       ),
     ],
 

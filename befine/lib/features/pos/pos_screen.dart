@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../ui/widgets/animated_glass_card.dart';
 
@@ -29,7 +30,7 @@ class _PosScreenState extends State<PosScreen> {
       final data = await _supabase
           .from('products')
           .select()
-          .ilike('name', '%$query%')
+          .or('name.ilike.%$query%,generated_sku.ilike.%$query%,factory_barcode.ilike.%$query%')
           .limit(5);
       
       if (mounted) {
@@ -282,7 +283,21 @@ class _PosScreenState extends State<PosScreen> {
               decoration: InputDecoration(
                 hintText: 'ابحث عن منتج بالاسم أو الباركود...',
                 prefixIcon: const Icon(Icons.search, color: AppColors.primary),
-                suffixIcon: _isSearching ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))) : null,
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isSearching)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                      onPressed: () => context.push('/scanner'),
+                      tooltip: 'مسح الباركود بالكاميرا',
+                    ),
+                  ],
+                ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               ),

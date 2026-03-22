@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 
 class ScannerScreen extends StatefulWidget {
@@ -11,13 +13,14 @@ class ScannerScreen extends StatefulWidget {
 
 class _ScannerScreenState extends State<ScannerScreen> {
   final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal,
+    detectionSpeed: DetectionSpeed.noDuplicates,
     facing: CameraFacing.back,
     torchEnabled: false,
+    formats: const [BarcodeFormat.all],
   );
 
   bool _isScanned = false;
-  String? _errorMessage;
+  bool _isLookingUp = false;
 
   @override
   void dispose() {
@@ -26,7 +29,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   void _onDetect(BarcodeCapture capture) {
-    if (_isScanned) return;
+    if (_isScanned || _isLookingUp) return;
 
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
@@ -34,17 +37,104 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final String? code = barcodes.first.rawValue;
     if (code == null || code.isEmpty) return;
 
-    setState(() => _isScanned = true);
+    setState(() {
+      _isScanned = true;
+      _isLookingUp = true;
+    });
 
-    // Return the scanned barcode value to the previous screen
-    Navigator.pop(context, code);
+    _lookupProduct(code);
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم مسح الباركود: $code'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  Future<void> _lookupProduct(String code) async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Search by generated_sku or factory_barcode
+      final result = await supabase
+          .from('products')
+          .select('id, name')
+          .or('generated_sku.eq.$code,factory_barcode.eq.$code')
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      if (result != null) {
+        // Product found → navigate to detail page
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تم العثور على: ${result['name']}'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+
+        // Small delay then navigate
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          context.push('/product/${result['id']}');
+        }
+      } else {
+        // Unknown barcode → show error
+        _showUnknownBarcodeDialog(code);
+      }
+    } catch (e) {
+      debugPrint('Barcode lookup error: $e');
+      if (mounted) {
+        _showUnknownBarcodeDialog(code);
+      }
+    }
+  }
+
+  void _showUnknownBarcodeDialog(String code) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
+        title: const Text('باركود مجهول'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'المنتج غير موجود في النظام',
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                code,
+                style: const TextStyle(fontFamily: 'Roboto', fontWeight: FontWeight.w600, letterSpacing: 1),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _isScanned = false;
+                _isLookingUp = false;
+              });
+            },
+            child: const Text('مسح مرة أخرى'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            child: const Text('إغلاق'),
+          ),
+        ],
       ),
     );
   }
@@ -67,7 +157,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
           onSubmitted: (value) {
             if (value.isNotEmpty) {
               Navigator.pop(ctx);
-              Navigator.pop(context, value);
+              setState(() {
+                _isScanned = true;
+                _isLookingUp = true;
+              });
+              _lookupProduct(value.trim());
             }
           },
         ),
@@ -78,10 +172,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
               final value = textController.text.trim();
               if (value.isNotEmpty) {
                 Navigator.pop(ctx);
-                Navigator.pop(context, value);
+                setState(() {
+                  _isScanned = true;
+                  _isLookingUp = true;
+                });
+                _lookupProduct(value);
               }
             },
-            child: const Text('تأكيد'),
+            child: const Text('بحث'),
           ),
         ],
       ),
@@ -165,7 +263,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             },
           ),
 
-          // Scan overlay (only if no error)
+          // Scan overlay
           Center(
             child: Container(
               width: 280,
@@ -184,6 +282,22 @@ class _ScannerScreenState extends State<ScannerScreen> {
             ),
           ),
 
+          // Loading indicator during lookup
+          if (_isLookingUp)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text('جارٍ البحث عن المنتج...', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  ],
+                ),
+              ),
+            ),
+
           // Bottom panel
           Positioned(
             bottom: 0, left: 0, right: 0,
@@ -201,7 +315,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   const Text('وجّه الكاميرا نحو الباركود', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   Text(
-                    'تأكد من وجود إضاءة كافية وأن الباركود واضح أمام الكاميرا',
+                    'سيتم البحث عن المنتج تلقائياً عند مسح الباركود',
                     style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                     textAlign: TextAlign.center,
                   ),

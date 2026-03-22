@@ -148,6 +148,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

@@ -486,6 +486,7 @@ class _EmployeeInvitesScreenState extends State<EmployeeInvitesScreen>
     final theme = Theme.of(context);
 
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       appBar: AppBar(
         title: const Text('إدارة الموظفين', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,

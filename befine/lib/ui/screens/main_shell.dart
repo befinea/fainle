@@ -107,15 +107,28 @@ class MainShell extends ConsumerWidget {
 
     return Scaffold(
       body: child,
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'barcode_fab',
-        onPressed: () => context.push('/scanner'),
-        backgroundColor: AppColors.primary,
-        elevation: 4,
-        mini: true,
-        child: const Icon(Icons.qr_code_scanner_rounded, size: 22, color: Colors.white),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'ai_fab',
+            onPressed: () => context.push('/ai-assistant'),
+            backgroundColor: const Color(0xFF7C3AED),
+            elevation: 6,
+            mini: true,
+            child: const Icon(Icons.auto_awesome_rounded, size: 22, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton(
+            heroTag: 'barcode_fab',
+            onPressed: () => context.push('/scanner'),
+            backgroundColor: AppColors.primary,
+            elevation: 4,
+            mini: true,
+            child: const Icon(Icons.qr_code_scanner_rounded, size: 22, color: Colors.white),
+          ),
+        ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
       extendBody: false,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
