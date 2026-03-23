@@ -291,7 +291,9 @@ class _TransactionListTabState extends State<_TransactionListTab> {
                     decoration: InputDecoration(
                       hintText: widget.type == 'import' ? 'بحث في الواردات...' : widget.type == 'export' ? 'بحث في الصادرات...' : 'بحث في المبيعات...',
                       prefixIcon: const Icon(Icons.search, color: AppColors.primary),
-                      border: InputBorder.none,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                     ),
                     onChanged: (_) => setState(() {}),

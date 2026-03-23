@@ -14,12 +14,14 @@ import '../../features/pos/pos_screen.dart';
 import '../../features/operations/operations_screen.dart';
 import '../../features/operations/transaction_create_screen.dart';
 import '../../features/operations/supplier_create_edit_screen.dart';
+import '../../features/operations/supplier_portal_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/settings/categories_screen.dart';
 import '../../features/settings/company_management_screen.dart';
 import '../../features/settings/employee_invites_screen.dart';
+import '../../features/settings/employee_permissions_screen.dart';
 import '../../features/settings/audit_log_screen.dart';
 import '../../features/settings/subscription_plans_screen.dart';
 import '../../features/barcode/scanner_screen.dart';
@@ -36,7 +38,10 @@ class AppRouter {
     redirect: (context, state) async {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
-      final isAuthPage = state.uri.toString() == '/auth';
+      final currentPath = state.uri.toString();
+      final isAuthPage = currentPath == '/auth';
+      final isOnboardingPage = currentPath == '/onboarding';
+
       if (!isLoggedIn && !isAuthPage) {
         // Not logged in → go to auth
         return '/auth';
@@ -44,6 +49,21 @@ class AppRouter {
 
       if (isLoggedIn && isAuthPage) {
         return '/dashboard';
+      }
+
+      // Prevent revisiting onboarding if user already has a company
+      if (isLoggedIn && isOnboardingPage) {
+        try {
+          final userId = session.user.id;
+          final profile = await Supabase.instance.client
+              .from('profiles')
+              .select('company_id')
+              .eq('id', userId)
+              .maybeSingle();
+          if (profile != null && profile['company_id'] != null) {
+            return '/dashboard';
+          }
+        } catch (_) {}
       }
 
       return null; // No redirect needed
@@ -172,6 +192,10 @@ class AppRouter {
                 path: 'plans',
                 builder: (context, state) => const SubscriptionPlansScreen(),
               ),
+              GoRoute(
+                path: 'permissions',
+                builder: (context, state) => const EmployeePermissionsScreen(),
+              ),
             ],
           ),
         ],
@@ -180,7 +204,10 @@ class AppRouter {
       // Full-screen scanner (pushed on top of shell)
       GoRoute(
         path: '/scanner',
-        builder: (context, state) => const ScannerScreen(),
+        builder: (context, state) {
+          final returnMode = state.uri.queryParameters['returnMode'] == 'true';
+          return ScannerScreen(returnMode: returnMode);
+        },
       ),
 
       // Barcode Printing
@@ -205,6 +232,12 @@ class AppRouter {
             storeId: extra?['storeId'] as String?,
           );
         },
+      ),
+
+      // Supplier Portal (full screen)
+      GoRoute(
+        path: '/supplier-portal',
+        builder: (context, state) => const SupplierPortalScreen(),
       ),
     ],
 

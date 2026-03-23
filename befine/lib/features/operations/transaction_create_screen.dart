@@ -27,10 +27,12 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
   List<Map<String, dynamic>> _warehouses = [];
   List<Map<String, dynamic>> _stores = [];
   List<Map<String, dynamic>> _stock = [];
+  List<Map<String, dynamic>> _suppliers = [];
 
   Map<String, dynamic>? _selectedWarehouse;
   Map<String, dynamic>? _selectedStore;
   Map<String, dynamic>? _selectedStockRow;
+  Map<String, dynamic>? _selectedSupplier;
 
   final _qtyCtrl = TextEditingController(text: '1');
   int _quantity = 1;
@@ -42,6 +44,7 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
     super.initState();
     _repo = OperationsRepository(Supabase.instance.client);
     _fetchWarehouses();
+    _fetchSuppliers();
     _qtyCtrl.addListener(_onQtyChanged);
   }
 
@@ -80,6 +83,19 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
       setState(() => _loadingWarehouses = false);
       _showError('فشل جلب المخازن: $e');
     }
+  }
+
+  Future<void> _fetchSuppliers() async {
+    try {
+      final companyId = await _repo.getCurrentCompanyIdOrThrow();
+      final data = await Supabase.instance.client
+          .from('external_entities')
+          .select('id, name, type')
+          .eq('company_id', companyId);
+      if (mounted) {
+        setState(() => _suppliers = List<Map<String, dynamic>>.from(data));
+      }
+    } catch (_) {}
   }
 
   Future<void> _onSelectWarehouse(Map<String, dynamic>? wh) async {
@@ -159,6 +175,17 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
   void _onQtyChanged() {
     final parsed = int.tryParse(_qtyCtrl.text.trim());
     final q = (parsed == null || parsed <= 0) ? 1 : parsed;
+
+    // For exports: cap quantity at available stock
+    if (!_isImport && _selectedStockRow != null) {
+      final available = (_selectedStockRow!['quantity'] as num?)?.toInt() ?? 0;
+      if (q > available) {
+        _showError('الكمية المطلوبة ($q) تتجاوز المتوفر ($available)');
+        _qtyCtrl.text = '$available';
+        return;
+      }
+    }
+
     if (q == _quantity) return;
     setState(() {
       _quantity = q;
@@ -184,6 +211,15 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
       return;
     }
 
+    // Validate export quantity against available stock
+    if (!_isImport) {
+      final available = (stockRow['quantity'] as num?)?.toInt() ?? 0;
+      if (_quantity > available) {
+        _showError('الكمية المطلوبة ($_quantity) تتجاوز المتوفر ($available). يرجى تقليل الكمية.');
+        return;
+      }
+    }
+
     final product = stockRow['products'] as Map<String, dynamic>?;
     final productId = product?['id'] as String?;
     if (productId == null) {
@@ -196,7 +232,7 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
       final transactionId = await _repo.createTransaction(
         type: widget.type,
         locationId: store['id'] as String,
-        externalEntityId: null,
+        externalEntityId: _selectedSupplier?['id'] as String?,
         totalAmount: _total,
         notes: 'warehouse:${wh['id']}',
       );
@@ -269,6 +305,20 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
                                           items: _stores.map((s) => DropdownMenuItem(value: s['id'] as String, child: Text(s['name'] as String? ?? ''))).toList(),
                                           onChanged: (id) => _onSelectStore(_stores.where((e) => e['id'] == id).cast<Map<String, dynamic>?>().firstOrNull),
                                         ),
+                                ],
+                                // Supplier / Customer selection
+                                if (_suppliers.isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  _buildDropdown(
+                                    label: _isImport ? 'المورّد (اختياري)' : 'العميل (اختياري)',
+                                    value: _selectedSupplier?['id'] as String?,
+                                    items: _suppliers.map((s) => DropdownMenuItem(value: s['id'] as String, child: Text(s['name'] as String? ?? ''))).toList(),
+                                    onChanged: (id) {
+                                      setState(() {
+                                        _selectedSupplier = id == null ? null : _suppliers.where((e) => e['id'] == id).firstOrNull;
+                                      });
+                                    },
+                                  ),
                                 ],
                               ],
                             ),
@@ -403,7 +453,7 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
           hint: Text(label, style: const TextStyle(fontSize: 14)),
           items: items,
           onChanged: onChanged,
-          decoration: const InputDecoration(border: InputBorder.none),
+          decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
           isExpanded: true,
         ),
       ),

@@ -287,6 +287,268 @@ class _StoresListScreenState extends State<StoresListScreen> {
     );
   }
 
+  void _showSelectStoreForEdit() {
+    if (_stores.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا توجد متاجر للتعديل')));
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            Container(margin: const EdgeInsets.symmetric(vertical: 12), width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(4))),
+            const Padding(padding: EdgeInsets.all(16), child: Text('اختر المتجر للتعديل', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                itemCount: _stores.length,
+                itemBuilder: (context, index) {
+                  final store = _stores[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: AnimatedGlassCard(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showEditStoreDialog(store);
+                      },
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                            child: const Icon(Icons.store_rounded, color: AppColors.primary, size: 24),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(store['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(store['warehouse_name'] as String? ?? 'بدون مخزن', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.edit_rounded, size: 20, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditStoreDialog(Map<String, dynamic> store) {
+    final nameCtrl = TextEditingController(text: store['name'] as String? ?? '');
+    String? selectedWarehouseId = store['parent_id'] as String?;
+    bool isLoading = true;
+    List<Map<String, dynamic>> warehousesInfo = [];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          if (isLoading && warehousesInfo.isEmpty) {
+            _supabase.from('locations')
+              .select('id, name, address, max_stores, company_id')
+              .eq('type', 'warehouse')
+              .or('company_id.eq.$_companyId,company_id.eq.00000000-0000-0000-0000-000000000001')
+              .then((whData) async {
+              final storeData = await _supabase.from('locations').select('parent_id').eq('company_id', _companyId!).eq('type', 'store').not('parent_id', 'is', 'null');
+              
+              final Map<String, int> warehouseCounts = {};
+              for (var s in List<Map<String, dynamic>>.from(storeData)) {
+                final pid = s['parent_id'] as String;
+                warehouseCounts[pid] = (warehouseCounts[pid] ?? 0) + 1;
+              }
+
+              final whList = List<Map<String, dynamic>>.from(whData);
+              for (var wh in whList) {
+                final max = wh['max_stores'] as int? ?? 5;
+                final reserved = warehouseCounts[wh['id'] as String] ?? 0;
+                wh['reserved'] = reserved;
+                wh['available'] = max - reserved;
+              }
+
+              if (mounted) {
+                setDialogState(() {
+                  warehousesInfo = whList;
+                  isLoading = false;
+                });
+              }
+            }).catchError((e) {
+              if (mounted) setDialogState(() => isLoading = false);
+            });
+          }
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: AnimatedGlassCard(
+                padding: const EdgeInsets.all(24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                    const Icon(Icons.storefront_rounded, size: 48, color: AppColors.primary),
+                    const SizedBox(height: 16),
+                    const Text('تعديل تفاصيل المتجر', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'اسم المتجر', prefixIcon: const Icon(Icons.store_rounded),
+                        filled: true, fillColor: Colors.white.withOpacity(0.05),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (isLoading)
+                      const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())
+                    else
+                      DropdownButtonFormField<String>(
+                        value: selectedWarehouseId,
+                        isExpanded: true,
+                        itemHeight: 70,
+                        decoration: InputDecoration(
+                          labelText: 'المخزن التابع له',
+                          prefixIcon: const Icon(Icons.warehouse_rounded),
+                          filled: true, fillColor: Colors.white.withOpacity(0.05),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                        items: warehousesInfo.map((wh) {
+                          final whCompanyId = wh['company_id'] as String?;
+                          final isGlobal = whCompanyId != _companyId;
+                          final name = (wh['name'] as String) + (isGlobal ? ' (مخزن رئيسي)' : '');
+                          final isCurrent = wh['id'] == store['parent_id'];
+                          final available = wh['available'] as int? ?? 0;
+                          final isFull = available <= 0 && !isCurrent;
+
+                          return DropdownMenuItem<String>(
+                            value: wh['id'] as String,
+                            enabled: !isFull,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: isFull ? Colors.grey : (isGlobal ? Colors.orange : null))),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isCurrent ? 'المخزن الحالي' : 'متاح: $available',
+                                  style: TextStyle(fontSize: 11, color: isFull ? Colors.red.shade400 : Colors.grey.shade500),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        selectedItemBuilder: (context) => warehousesInfo.map((wh) {
+                          final whCompanyId = wh['company_id'] as String?;
+                          final isGlobal = whCompanyId != _companyId;
+                          final name = (wh['name'] as String) + (isGlobal ? ' (مخزن رئيسي)' : '');
+                          return Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold));
+                        }).toList(),
+                        onChanged: (v) => setDialogState(() => selectedWarehouseId = v),
+                      ),
+                    const SizedBox(height: 32),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.delete_rounded, color: Colors.redAccent),
+                          style: IconButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1)),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: ctx,
+                              builder: (c) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: const Text('تأكيد الحذف'),
+                                content: const Text('هل أنت متأكد من حذف المتجر؟ لا يمكن التراجع.'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                                    onPressed: () => Navigator.pop(c, true),
+                                    child: const Text('حذف'),
+                                  ),
+                                ]
+                              )
+                            );
+                            if (confirm == true) {
+                              Navigator.pop(ctx);
+                              _deleteStore(store['id'] as String);
+                            }
+                          },
+                        ),
+                        Row(
+                          children: [
+                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              ),
+                              onPressed: () {
+                                if (nameCtrl.text.trim().isNotEmpty && selectedWarehouseId != null) {
+                                  _updateStore(store['id'] as String, nameCtrl.text.trim(), selectedWarehouseId!);
+                                  Navigator.pop(ctx);
+                                }
+                              },
+                              child: const Text('حفظ'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _updateStore(String id, String name, String parentId) async {
+    try {
+      await _supabase.from('locations').update({
+        'name': name,
+        'parent_id': parentId,
+      }).eq('id', id);
+      _loadStores();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: AppColors.error));
+    }
+  }
+
+  Future<void> _deleteStore(String id) async {
+    try {
+      await _supabase.from('locations').delete().eq('id', id);
+      _loadStores();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في الحذف: $e'), backgroundColor: AppColors.error));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -299,17 +561,24 @@ class _StoresListScreenState extends State<StoresListScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            tooltip: 'تعديل متجر',
+            onPressed: _showSelectStoreForEdit,
+            icon: const Icon(Icons.edit_rounded, color: AppColors.primary),
+          ),
+          IconButton(
+            tooltip: 'تحديث البيانات',
             onPressed: _loadStores,
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'add_store_fab',
         onPressed: _showAddStoreDialog,
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_business_rounded),
-        label: const Text('متجر جديد'),
+        icon: const Icon(Icons.add_business_rounded, size: 20),
+        label: const Text('متجر جديد', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: Container(
         decoration: BoxDecoration(

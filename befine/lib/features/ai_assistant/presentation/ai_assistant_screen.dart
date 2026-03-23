@@ -395,7 +395,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen>
                   hintStyle: TextStyle(
                     color: isDark ? Colors.white38 : Colors.grey,
                   ),
-                  border: InputBorder.none,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,

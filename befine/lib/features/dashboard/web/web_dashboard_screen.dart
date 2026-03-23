@@ -189,9 +189,9 @@ class _WebDashboardScreenState extends ConsumerState<WebDashboardScreen> {
                             child: TextField(
                               decoration: InputDecoration(
                                 hintText: 'بحث في النظام...',
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                                 prefixIcon: Icon(Icons.search, color: theme.colorScheme.onSurfaceVariant),
                                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
                               ),

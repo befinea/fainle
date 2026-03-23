@@ -3,96 +3,76 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../features/auth/application/auth_service.dart';
+import '../../features/auth/application/permissions_provider.dart';
 
 class MainShell extends ConsumerWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
 
-  int _calcIndex(String location, String role) {
-    if (role == 'super_admin') {
-      if (location.startsWith('/pos')) return 1;
-      if (location.startsWith('/inventory')) return 2;
-      if (location.startsWith('/operations')) return 3;
-      if (location.startsWith('/reports')) return 4;
-      return 0;
+  int _calcIndex(String location, List<String> availableRoutes) {
+    for (int i = 0; i < availableRoutes.length; i++) {
+        if (location.startsWith(availableRoutes[i])) return i;
     }
-    if (role == 'cashier') {
-      if (location.startsWith('/pos')) return 1;
-      return 0;
-    }
-    if (role == 'warehouse_worker') {
-      if (location.startsWith('/inventory')) return 1;
-      return 0;
-    }
-    if (role == 'supplier') {
-      if (location.startsWith('/pos')) return 1;
-      if (location.startsWith('/inventory')) return 2;
-      if (location.startsWith('/operations')) return 3;
-      return 0;
-    }
-    // Admin (company owner): Dashboard, Stores, Employees, Operations, Reports
-    if (location.startsWith('/stores')) return 1;
-    if (location.startsWith('/employees') || location.startsWith('/settings/employees')) return 2;
-    if (location.startsWith('/operations')) return 3;
-    if (location.startsWith('/reports')) return 4;
     return 0;
   }
 
-  List<NavigationDestination> _getDestinations(String role) {
+  (List<NavigationDestination>, List<String>) _getTabs(String role, Map<String, dynamic> perms) {
     if (role == 'super_admin') {
-      return const [
-        NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
-        NavigationDestination(icon: Icon(Icons.point_of_sale_rounded), label: 'المبيعات'),
-        NavigationDestination(icon: Icon(Icons.inventory_2_rounded), label: 'المخزون'),
-        NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'),
-        NavigationDestination(icon: Icon(Icons.analytics_rounded), label: 'التقارير'),
-      ];
+      return (
+        const [
+          NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
+          NavigationDestination(icon: Icon(Icons.point_of_sale_rounded), label: 'المبيعات'),
+          NavigationDestination(icon: Icon(Icons.inventory_2_rounded), label: 'المخزون'),
+          NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'),
+          NavigationDestination(icon: Icon(Icons.analytics_rounded), label: 'التقارير'),
+        ],
+        ['/dashboard', '/pos', '/inventory', '/operations', '/reports']
+      );
     }
-    if (role == 'cashier') {
-      return const [
-        NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
-        NavigationDestination(icon: Icon(Icons.point_of_sale_rounded), label: 'الكاشير'),
-      ];
-    }
-    if (role == 'warehouse_worker') {
-      return const [
-        NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
-        NavigationDestination(icon: Icon(Icons.warehouse_rounded), label: 'المخزون'),
-      ];
-    }
-    if (role == 'supplier') {
-      return const [
-        NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
-        NavigationDestination(icon: Icon(Icons.point_of_sale_rounded), label: 'المبيعات'),
-        NavigationDestination(icon: Icon(Icons.inventory_2_rounded), label: 'المخزون'),
-        NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'),
-      ];
-    }
+    
     // Admin / company owner
-    return const [
-      NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
-      NavigationDestination(icon: Icon(Icons.store_rounded), label: 'المتاجر'),
-      NavigationDestination(icon: Icon(Icons.people_rounded), label: 'الموظفين'),
-      NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'),
-      NavigationDestination(icon: Icon(Icons.analytics_rounded), label: 'التقارير'),
-    ];
-  }
+    if (role == 'admin' || role == 'owner') {
+      return (
+        const [
+          NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
+          NavigationDestination(icon: Icon(Icons.store_rounded), label: 'المتاجر'),
+          NavigationDestination(icon: Icon(Icons.people_rounded), label: 'الموظفين'),
+          NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'),
+          NavigationDestination(icon: Icon(Icons.analytics_rounded), label: 'التقارير'),
+        ],
+        ['/dashboard', '/stores', '/settings/employees', '/operations', '/reports']
+      );
+    }
 
-  List<String> _getRoutes(String role) {
-    if (role == 'super_admin') {
-      return ['/dashboard', '/pos', '/inventory', '/operations', '/reports'];
+    // Employees (Cashier, Warehouse Worker, Supplier, etc.) using Custom Permissions
+    final pos = perms['pos'] ?? (role == 'cashier' || role == 'supplier');
+    final inv = perms['inventory'] ?? (role == 'warehouse_worker' || role == 'supplier');
+    final ops = perms['operations'] ?? (role == 'supplier');
+    final rep = perms['reports'] ?? false;
+
+    final dests = <NavigationDestination>[
+      const NavigationDestination(icon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
+    ];
+    final routes = <String>['/dashboard'];
+
+    if (pos == true) {
+      dests.add(const NavigationDestination(icon: Icon(Icons.point_of_sale_rounded), label: 'المبيعات'));
+      routes.add('/pos');
     }
-    if (role == 'cashier') {
-      return ['/dashboard', '/pos'];
+    if (inv == true) {
+      dests.add(const NavigationDestination(icon: Icon(Icons.inventory_2_rounded), label: 'المخزون'));
+      routes.add('/inventory');
     }
-    if (role == 'warehouse_worker') {
-      return ['/dashboard', '/inventory'];
+    if (ops == true) {
+      dests.add(const NavigationDestination(icon: Icon(Icons.swap_horiz_rounded), label: 'العمليات'));
+      routes.add('/operations');
     }
-    if (role == 'supplier') {
-      return ['/dashboard', '/pos', '/inventory', '/operations'];
+    if (rep == true) {
+      dests.add(const NavigationDestination(icon: Icon(Icons.analytics_rounded), label: 'التقارير'));
+      routes.add('/reports');
     }
-    // Admin / company owner
-    return ['/dashboard', '/stores', '/settings/employees', '/operations', '/reports'];
+
+    return (dests, routes);
   }
 
   @override
@@ -101,9 +81,19 @@ class MainShell extends ConsumerWidget {
     final userState = ref.watch(authProvider);
     final role = userState.user?.role ?? 'cashier';
 
-    final destinations = _getDestinations(role);
-    final routes = _getRoutes(role);
-    final currentIndex = _calcIndex(location, role).clamp(0, destinations.length - 1);
+    // Fetch custom permissions
+    final permsAsync = ref.watch(customPermissionsProvider);
+    
+    return permsAsync.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (_, __) => _buildScaffold(context, location, role, {}, ref),
+      data: (perms) => _buildScaffold(context, location, role, perms, ref),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, String location, String role, Map<String, dynamic> perms, WidgetRef ref) {
+    final (destinations, routes) = _getTabs(role, perms);
+    final currentIndex = _calcIndex(location, routes).clamp(0, destinations.length > 0 ? destinations.length - 1 : 0);
 
     return Scaffold(
       body: child,

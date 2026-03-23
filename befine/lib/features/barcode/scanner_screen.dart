@@ -5,7 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 
 class ScannerScreen extends StatefulWidget {
-  const ScannerScreen({super.key});
+  final bool returnMode;
+  const ScannerScreen({super.key, this.returnMode = false});
 
   @override
   State<ScannerScreen> createState() => _ScannerScreenState();
@@ -36,6 +37,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     final String? code = barcodes.first.rawValue;
     if (code == null || code.isEmpty) return;
+
+    if (widget.returnMode) {
+      if (!_isScanned) {
+        setState(() => _isScanned = true);
+        context.pop(code);
+      }
+      return;
+    }
 
     setState(() {
       _isScanned = true;
@@ -168,17 +177,21 @@ class _ScannerScreenState extends State<ScannerScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
           ElevatedButton(
-            onPressed: () {
-              final value = textController.text.trim();
-              if (value.isNotEmpty) {
+              onPressed: () {
+                final code = textController.text.trim();
                 Navigator.pop(ctx);
-                setState(() {
-                  _isScanned = true;
-                  _isLookingUp = true;
-                });
-                _lookupProduct(value);
-              }
-            },
+                if (code.isNotEmpty) {
+                  if (widget.returnMode) {
+                    context.pop(code);
+                  } else {
+                    setState(() {
+                      _isScanned = true;
+                      _isLookingUp = true;
+                    });
+                    _lookupProduct(code);
+                  }
+                }
+              },
             child: const Text('بحث'),
           ),
         ],

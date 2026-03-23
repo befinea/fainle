@@ -262,8 +262,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         child: Text('إدارة الشركة', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
                       ),
 
-                      // Warehouse Management (Only for Premium/Gold plan)
-                      if (_subscriptionPlan == 'premium') ...[
+                      // Warehouse Management (Premium / Gold / Enterprise)
+                      if (['premium', 'gold', 'enterprise'].contains(_subscriptionPlan)) ...[
                         _SettingsTile(
                           icon: Icons.warehouse_rounded,
                           color: Colors.amber.shade700,
@@ -281,6 +281,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: 'إدارة الموظفين',
                         subtitle: 'دعوة موظفين جدد وإدارة الصلاحيات',
                         onTap: () => context.push('/settings/employees'),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // RBAC Permissions
+                      _SettingsTile(
+                        icon: Icons.admin_panel_settings_rounded,
+                        color: Colors.purple,
+                        title: 'صلاحيات الموظفين',
+                        subtitle: 'تحكم بالصفحات المتاحة لكل موظف',
+                        onTap: () => context.push('/settings/permissions'),
                       ),
                       const SizedBox(height: 12),
 
@@ -302,6 +312,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: 'سجل النشاطات',
                         subtitle: 'متابعة كل الحركات والعمليات',
                         onTap: () => context.push('/settings/audit-log'),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Supplier Portal (for suppliers)
+                    if (isSupplier) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12, top: 12),
+                        child: Text('بوابة المورد', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.local_shipping_rounded,
+                        color: Colors.orange,
+                        title: 'بوابة المورد',
+                        subtitle: 'عرض الحركات والفواتير الخاصة بك',
+                        onTap: () => context.push('/supplier-portal'),
                       ),
                       const SizedBox(height: 12),
                     ],
