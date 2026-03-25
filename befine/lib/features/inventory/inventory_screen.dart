@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
@@ -374,154 +375,382 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final userState = ref.watch(authProvider);
     final isSupplier = userState.user?.role == 'supplier';
 
-    return Scaffold(
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: isSupplier ? null : FloatingActionButton.extended(
-        heroTag: 'add_warehouse_fab',
-        onPressed: _showAddDialog,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add, size: 20),
-        label: const Text('مخزن جديد', style: TextStyle(fontWeight: FontWeight.bold)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth > 800;
+        return Scaffold(
+          backgroundColor: isDark ? AppColors.backgroundDark : null,
+          floatingActionButtonLocation: isDesktop ? null : FloatingActionButtonLocation.centerFloat,
+          floatingActionButton: (isSupplier || isDesktop) ? null : _buildMobileFab(),
+          body: isDesktop ? _buildDesktop(context, isDark, isSupplier) : _buildMobile(context, isDark, isSupplier),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileFab() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: AppColors.primary, // bg-primary
+        borderRadius: BorderRadius.circular(999), // rounded-full
+        boxShadow: [
+          BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10)), // shadow-lg shadow-primary/40
+        ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              theme.colorScheme.background,
-              theme.colorScheme.background.withOpacity(0.9),
-              theme.colorScheme.primary.withOpacity(0.05),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: _fetchWarehouses,
-            child: CustomScrollView(
-              slivers: [
-                SliverAppBar(
-                  backgroundColor: Colors.transparent,
-                  title: Text('المخازن', style: theme.textTheme.titleLarge),
-                  floating: true,
-                  actions: [
-                    if (!isSupplier)
-                      IconButton(
-                        tooltip: 'تعديل مخزن',
-                        icon: const Icon(Icons.edit_rounded, color: AppColors.primary),
-                        onPressed: _showSelectWarehouseForEdit,
-                      ),
-                  ],
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                    child: AnimatedGlassCard(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: TextField(
-                        controller: _searchCtrl,
-                        decoration: InputDecoration(
-                          hintText: 'ابحث عن مخزن...',
-                          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                          suffixIcon: _searchCtrl.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 20),
-                                  onPressed: () {
-                                    _searchCtrl.clear();
-                                    _onSearch();
-                                  },
-                                )
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                if (_isLoading)
-                  const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
-                else if (_filtered.isEmpty)
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.warehouse_outlined, size: 64, color: Colors.grey.withOpacity(0.5)),
-                          const SizedBox(height: 16),
-                          const Text('لا توجد مخازن', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          if (!isSupplier)
-                            TextButton.icon(
-                              onPressed: _showAddDialog,
-                              icon: const Icon(Icons.add),
-                              label: const Text('إضافة مخزن'),
-                            ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (ctx, i) {
-                          final wh = _filtered[i];
-                          final isAssigned = !isSupplier || _assignedWarehouseIds.contains(wh['id']);
-                          
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: AnimatedGlassCard(
-                              padding: const EdgeInsets.all(16),
-                              onTap: isAssigned ? () => context.push('/inventory/warehouse/${wh['id']}', extra: wh['name']) : null,
-                              child: Opacity(
-                                opacity: isAssigned ? 1.0 : 0.5,
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        color: isAssigned ? AppColors.primary.withOpacity(0.15) : Colors.grey.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Icon(Icons.warehouse_rounded, color: isAssigned ? AppColors.primary : Colors.grey, size: 28),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(wh['name'], style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: isAssigned ? null : Colors.grey)),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            isAssigned ? (wh['address'] as String? ?? 'لا يوجد عنوان محدد') : 'مخزن مقفل',
-                                            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Icon(isAssigned ? Icons.arrow_forward_ios : Icons.lock_outline, size: 14, color: Colors.grey.shade400),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                        childCount: _filtered.length,
-                      ),
-                    ),
-                  ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showAddDialog,
+          borderRadius: BorderRadius.circular(999),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), // px-6 py-4
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+                const SizedBox(width: 8), // gap-2
+                Text('مخزن جديد', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMobile(BuildContext context, bool isDark, bool isSupplier) {
+    return Column(
+      children: [
+        // TopAppBar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+              border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(isDark ? 0.4 : 0.05), blurRadius: 40, offset: const Offset(0, 20)),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20)],
+                      ),
+                      child: const Icon(Icons.inventory_2_rounded, color: AppColors.primary, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('المخازن', style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                  ],
+                ),
+                if (!isSupplier)
+                   InkWell(
+                     onTap: _showSelectWarehouseForEdit,
+                     borderRadius: BorderRadius.circular(12),
+                     child: Container(
+                       width: 40, height: 40,
+                       decoration: BoxDecoration(
+                         color: Colors.grey.withOpacity(0.1),
+                         borderRadius: BorderRadius.circular(12),
+                       ),
+                       child: const Icon(Icons.edit_rounded, color: AppColors.primary),
+                     ),
+                   ),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _fetchWarehouses,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+                children: [
+                  // Search Bar
+                  AnimatedGlassCard(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    borderRadius: 16,
+                    child: TextField(
+                      controller: _searchCtrl,
+                      style: GoogleFonts.inter(),
+                      decoration: InputDecoration(
+                        hintText: 'ابحث عن مخزن...',
+                        hintStyle: GoogleFonts.inter(color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                        prefixIcon: Icon(Icons.search_rounded, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                        suffixIcon: _searchCtrl.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 20),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  _onSearch();
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  if (_isLoading)
+                    const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+                  else if (_filtered.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          children: [
+                            Icon(Icons.warehouse_outlined, size: 64, color: AppColors.primary.withOpacity(0.3)),
+                            const SizedBox(height: 16),
+                            Text('لا توجد مخازن', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 18)),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ..._filtered.map((wh) => _buildMobileWarehouseCard(wh, isDark, isSupplier)).toList(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+  }
+
+  Widget _buildMobileWarehouseCard(Map<String, dynamic> wh, bool isDark, bool isSupplier) {
+    final isAssigned = !isSupplier || _assignedWarehouseIds.contains(wh['id']);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: AnimatedGlassCard(
+        onTap: isAssigned ? () => context.push('/inventory/warehouse/${wh['id']}', extra: wh['name']) : null,
+        padding: const EdgeInsets.all(20),
+        borderRadius: 24,
+        child: Opacity(
+          opacity: isAssigned ? 1.0 : 0.5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 56, height: 56,
+                    decoration: BoxDecoration(
+                      color: (isAssigned ? AppColors.primary : Colors.grey).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
+                    ),
+                    child: Icon(Icons.warehouse_rounded, color: isAssigned ? AppColors.primary : Colors.grey, size: 32),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(wh['name'] ?? '', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 18)),
+                        const SizedBox(height: 4),
+                        Text(
+                          isAssigned ? (wh['address'] as String? ?? 'بدون عنوان') : 'مخزن مقفل',
+                          style: GoogleFonts.inter(fontSize: 13, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(isAssigned ? Icons.chevron_left_rounded : Icons.lock_outline_rounded, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                ],
+              ),
+              if (isAssigned) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text('عرض المخزون', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktop(BuildContext context, bool isDark, bool isSupplier) {
+    return Padding(
+      padding: const EdgeInsets.all(32).copyWith(top: 48),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('إدارة المخازن', style: GoogleFonts.manrope(fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1)),
+              Row(
+                children: [
+                  if (!isSupplier)
+                    InkWell(
+                      onTap: _showSelectWarehouseForEdit,
+                      borderRadius: BorderRadius.circular(999),
+                      child: AnimatedGlassCard(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        borderRadius: 999,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.edit_rounded, color: AppColors.primary, size: 20),
+                            const SizedBox(width: 8),
+                            Text('تعديل مخزن', style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (!isSupplier) const SizedBox(width: 16),
+                  if (!isSupplier)
+                    InkWell(
+                      onTap: _showAddDialog,
+                      borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                            const SizedBox(width: 8),
+                            Text('مخزن جديد', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: Colors.white)),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 48),
+
+          // Search Section
+          SizedBox(
+            width: 800,
+            child: AnimatedGlassCard(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              borderRadius: 16,
+              child: TextField(
+                controller: _searchCtrl,
+                style: GoogleFonts.inter(fontSize: 18),
+                decoration: InputDecoration(
+                  hintText: 'ابحث عن مخزن...',
+                  hintStyle: GoogleFonts.inter(color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                  prefixIcon: Icon(Icons.search_rounded, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _onSearch();
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 20),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 48),
+
+          // Grid
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filtered.isEmpty
+                    ? Center(
+                        child: Text(
+                          _searchCtrl.text.isEmpty ? 'ليس لديك مخازن بعد' : 'لا يوجد نتائج تطابق بحثك',
+                          style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      )
+                    : GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 400,
+                          mainAxisSpacing: 24,
+                          crossAxisSpacing: 24,
+                          childAspectRatio: 1.5,
+                        ),
+                        itemCount: _filtered.length,
+                        itemBuilder: (ctx, i) {
+                          final wh = _filtered[i];
+                          final isAssigned = !isSupplier || _assignedWarehouseIds.contains(wh['id']);
+                          
+                          return AnimatedGlassCard(
+                            onTap: isAssigned ? () => context.push('/inventory/warehouse/${wh['id']}', extra: wh['name']) : null,
+                            padding: const EdgeInsets.all(24),
+                            borderRadius: 24,
+                            child: Opacity(
+                              opacity: isAssigned ? 1.0 : 0.5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: (isAssigned ? AppColors.primary : Colors.grey).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(16),
+                                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
+                                        ),
+                                        child: Icon(Icons.warehouse_rounded, color: isAssigned ? AppColors.primary : Colors.grey, size: 32),
+                                      ),
+                                      const Spacer(),
+                                      Icon(isAssigned ? Icons.arrow_outward_rounded : Icons.lock_outline_rounded, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  Text(wh['name'] ?? '', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 24)),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    isAssigned ? (wh['address'] as String? ?? 'بدون عنوان') : 'مخزن مقفل',
+                                    style: GoogleFonts.inter(fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
       ),
     );
   }

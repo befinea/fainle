@@ -5,6 +5,7 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
+  // ─── Light Theme ───
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -12,38 +13,23 @@ class AppTheme {
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
+        tertiary: AppColors.tertiary,
         surface: AppColors.surfaceLight,
         background: AppColors.backgroundLight,
         error: AppColors.error,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: AppColors.textPrimaryLight,
+        onBackground: AppColors.textPrimaryLight,
       ),
-      scaffoldBackgroundColor: AppColors.backgroundLight,
-      textTheme: GoogleFonts.cairoTextTheme(ThemeData.light().textTheme).copyWith(
-        titleLarge: GoogleFonts.cairo(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textPrimaryLight,
-        ),
-        titleMedium: GoogleFonts.cairo(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimaryLight,
-        ),
-        bodyLarge: GoogleFonts.cairo(
-          fontSize: 16,
-          color: AppColors.textPrimaryLight,
-        ),
-        bodyMedium: GoogleFonts.cairo(
-          fontSize: 14,
-          color: AppColors.textSecondaryLight,
-        ),
-      ),
+      scaffoldBackgroundColor: Colors.transparent,
+      textTheme: _buildTextTheme(Brightness.light),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surfaceLight.withOpacity(0.9), // Hint of glassmorphism
+        backgroundColor: AppColors.surfaceLight.withOpacity(0.85),
         elevation: 0,
-        scrolledUnderElevation: 4,
-        shadowColor: AppColors.primary.withOpacity(0.1),
+        scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryLight),
-        titleTextStyle: GoogleFonts.cairo(
+        titleTextStyle: GoogleFonts.manrope(
           color: AppColors.textPrimaryLight,
           fontSize: 22,
           fontWeight: FontWeight.w700,
@@ -52,26 +38,28 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: AppColors.surfaceLight,
-        elevation: 8,
-        shadowColor: AppColors.primary.withOpacity(0.08),
+        elevation: 0,
+        shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: Colors.transparent, width: 0),
+          borderRadius: BorderRadius.circular(20),
         ),
-        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceLight,
+        fillColor: AppColors.backgroundLight,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        hintStyle: GoogleFonts.cairo(color: AppColors.textSecondaryLight.withOpacity(0.5)),
+        hintStyle: GoogleFonts.inter(
+          color: AppColors.textSecondaryLight.withOpacity(0.5),
+          fontSize: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.borderLight, width: 1.5),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.borderLight, width: 1.5),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -86,66 +74,67 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          elevation: 4,
-          shadowColor: AppColors.primary.withOpacity(0.4),
+          elevation: 0,
+          shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.cairo(
-            fontSize: 18,
+          textStyle: GoogleFonts.manrope(
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: AppColors.secondary, // Yellow/Gold pops nicely
-        foregroundColor: AppColors.textPrimaryLight,
-        elevation: 6,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        indicatorColor: AppColors.primary.withOpacity(0.12),
+        backgroundColor: AppColors.surfaceLight,
+        height: 70,
+        labelTextStyle: WidgetStateProperty.all(
+          GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Colors.transparent,
+        thickness: 0,
       ),
     );
   }
 
+  // ─── Dark Theme (Obsidian Glass) ───
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.secondary, // Yellow pops heavily in Dark Mode
-        secondary: AppColors.primary,
+        primary: AppColors.primary,
+        secondary: AppColors.secondary,
+        tertiary: AppColors.tertiary,
         surface: AppColors.surfaceDark,
         background: AppColors.backgroundDark,
         error: AppColors.error,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: AppColors.textPrimaryDark,
+        onBackground: AppColors.textPrimaryDark,
+        surfaceVariant: AppColors.surfaceVariant,
+        outline: AppColors.outline,
+        outlineVariant: AppColors.outlineVariant,
       ),
-      scaffoldBackgroundColor: AppColors.backgroundDark,
-      textTheme: GoogleFonts.cairoTextTheme(ThemeData.dark().textTheme).copyWith(
-        titleLarge: GoogleFonts.cairo(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textPrimaryDark,
-        ),
-        titleMedium: GoogleFonts.cairo(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimaryDark,
-        ),
-        bodyLarge: GoogleFonts.cairo(
-          fontSize: 16,
-          color: AppColors.textPrimaryDark,
-        ),
-        bodyMedium: GoogleFonts.cairo(
-          fontSize: 14,
-          color: AppColors.textSecondaryDark,
-        ),
-      ),
+      scaffoldBackgroundColor: Colors.transparent,
+      textTheme: _buildTextTheme(Brightness.dark),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surfaceDark.withOpacity(0.9),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 4,
-        shadowColor: Colors.black.withOpacity(0.5),
+        scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryDark),
-        titleTextStyle: GoogleFonts.cairo(
+        titleTextStyle: GoogleFonts.manrope(
           color: AppColors.textPrimaryDark,
           fontSize: 22,
           fontWeight: FontWeight.w700,
@@ -153,31 +142,33 @@ class AppTheme {
         centerTitle: true,
       ),
       cardTheme: CardThemeData(
-        color: AppColors.surfaceDark,
-        elevation: 6,
-        shadowColor: Colors.black.withOpacity(0.4),
+        color: AppColors.surfaceContainerHigh,
+        elevation: 0,
+        shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: AppColors.borderDark, width: 1),
+          borderRadius: BorderRadius.circular(20),
         ),
-        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.backgroundDark,
+        fillColor: AppColors.surfaceContainerLow,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        hintStyle: GoogleFonts.cairo(color: AppColors.textSecondaryDark.withOpacity(0.5)),
+        hintStyle: GoogleFonts.inter(
+          color: AppColors.textSecondaryDark.withOpacity(0.5),
+          fontSize: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.borderDark, width: 1.5),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.borderDark, width: 1.5),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.secondary, width: 2), // Yellow focus
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -186,26 +177,65 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.secondary, // Yellow button on dark mode
-          foregroundColor: AppColors.backgroundDark, // Dark text on yellow
-          elevation: 4,
-          shadowColor: AppColors.secondary.withOpacity(0.3),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.cairo(
-            fontSize: 18,
+          textStyle: GoogleFonts.manrope(
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: AppColors.primaryVariant,
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        elevation: 6,
+        elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        indicatorColor: AppColors.primary.withOpacity(0.15),
+        backgroundColor: Colors.transparent,
+        height: 70,
+        labelTextStyle: WidgetStateProperty.all(
+          GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondaryDark),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Colors.transparent,
+        thickness: 0,
+      ),
+    );
+  }
+
+  // ─── Typography System ───
+  static TextTheme _buildTextTheme(Brightness brightness) {
+    final isLight = brightness == Brightness.light;
+    final primaryColor = isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark;
+    final secondaryColor = isLight ? AppColors.textSecondaryLight : AppColors.textSecondaryDark;
+
+    return TextTheme(
+      // Manrope for headlines (The Authority)
+      displayLarge: GoogleFonts.manrope(fontSize: 57, fontWeight: FontWeight.bold, color: primaryColor),
+      displayMedium: GoogleFonts.manrope(fontSize: 45, fontWeight: FontWeight.bold, color: primaryColor),
+      displaySmall: GoogleFonts.manrope(fontSize: 36, fontWeight: FontWeight.bold, color: primaryColor),
+      headlineLarge: GoogleFonts.manrope(fontSize: 32, fontWeight: FontWeight.bold, color: primaryColor),
+      headlineMedium: GoogleFonts.manrope(fontSize: 28, fontWeight: FontWeight.w700, color: primaryColor),
+      headlineSmall: GoogleFonts.manrope(fontSize: 24, fontWeight: FontWeight.w700, color: primaryColor),
+      titleLarge: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.bold, color: primaryColor),
+      titleMedium: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w700, color: primaryColor),
+      titleSmall: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: primaryColor),
+      // Inter for body (The Utility)
+      bodyLarge: GoogleFonts.inter(fontSize: 16, color: primaryColor),
+      bodyMedium: GoogleFonts.inter(fontSize: 14, color: secondaryColor),
+      bodySmall: GoogleFonts.inter(fontSize: 12, color: secondaryColor),
+      labelLarge: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: primaryColor),
+      labelMedium: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: secondaryColor),
+      labelSmall: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: secondaryColor),
     );
   }
 }

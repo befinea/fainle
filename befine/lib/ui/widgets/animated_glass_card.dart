@@ -1,6 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 
+/// A premium Glassmorphism card with press-to-scale animation,
+/// backdrop blur, ghost borders, and ambient glow on hover.
 class AnimatedGlassCard extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -17,9 +20,9 @@ class AnimatedGlassCard extends StatefulWidget {
     this.onTap,
     this.padding = const EdgeInsets.all(20),
     this.margin = const EdgeInsets.all(0),
-    this.borderRadius = 24.0,
+    this.borderRadius = 20.0,
     this.color,
-    this.blur = 10.0,
+    this.blur = 20.0,
     this.opacity = 0.7,
   }) : super(key: key);
 
@@ -27,7 +30,8 @@ class AnimatedGlassCard extends StatefulWidget {
   State<AnimatedGlassCard> createState() => _AnimatedGlassCardState();
 }
 
-class _AnimatedGlassCardState extends State<AnimatedGlassCard> with SingleTickerProviderStateMixin {
+class _AnimatedGlassCardState extends State<AnimatedGlassCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   bool _isHovering = false;
@@ -36,9 +40,11 @@ class _AnimatedGlassCardState extends State<AnimatedGlassCard> with SingleTicker
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 150));
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.97).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
   }
 
@@ -54,41 +60,79 @@ class _AnimatedGlassCardState extends State<AnimatedGlassCard> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = widget.color ?? Theme.of(context).colorScheme.surface;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Create a beautiful subtle gradient for the card border
-    final borderColor = isDark 
-      ? Colors.white.withOpacity(0.1) 
-      : Colors.black.withOpacity(0.05);
 
-    Widget cardContent = Container(
-      padding: widget.padding,
-      decoration: BoxDecoration(
-        color: themeColor.withOpacity(widget.opacity),
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: [
-          if (_isHovering)
+    // Obsidian Glass: Surface layering instead of borders
+    final cardColor = widget.color ??
+        (isDark
+            ? AppColors.surfaceContainerHigh.withOpacity(widget.opacity)
+            : AppColors.surfaceLight.withOpacity(widget.opacity == 1.0 ? 0.75 : widget.opacity)); // More transparent in light mode for blur
+
+    // Ghost Border: subtle whisper boundary
+    final borderColor = isDark
+        ? AppColors.ghostBorder
+        : AppColors.tertiary.withOpacity(0.1); // Subtly tinted border
+
+    // Ambient shadow: Clean professional drop shadow
+    final defaultShadows = isDark
+        ? [
             BoxShadow(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
-              blurRadius: 20,
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            )
+          ]
+        : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04), // Clean, subtle gray
+              blurRadius: 15,
+              spreadRadius: 0,
+              offset: const Offset(0, 4),
+            )
+          ];
+
+    // Hover glow: primary-tinted expansion
+    final hoverShadows = isDark
+        ? [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.2),
+              blurRadius: 24,
+              spreadRadius: 1,
+              offset: const Offset(0, 8),
+            )
+          ]
+        : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08), // Slightly stronger neutral shadow
+              blurRadius: 25,
               spreadRadius: 2,
               offset: const Offset(0, 8),
             )
-          else
-            BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-        ],
+          ];
+
+    Widget cardContent = AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      padding: widget.padding,
+      decoration: BoxDecoration(
+        color: null,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cardColor,
+            cardColor.withOpacity(cardColor.opacity * 0.5),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        border: Border.all(color: borderColor, width: 1),
+        boxShadow: _isHovering ? hoverShadows : defaultShadows,
       ),
       child: widget.child,
     );
 
-    // Apply glass effect if blurred
-    if (widget.blur > 0) {
+    // Apply backdrop blur for glassmorphism
+    if (widget.blur > 0 && isDark) {
       cardContent = ClipRRect(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         child: BackdropFilter(
@@ -101,7 +145,9 @@ class _AnimatedGlassCardState extends State<AnimatedGlassCard> with SingleTicker
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
-      cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
       child: GestureDetector(
         onTapDown: widget.onTap != null ? _onTapDown : null,
         onTapUp: widget.onTap != null ? _onTapUp : null,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
@@ -69,142 +70,226 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final user = _supabase.auth.currentUser;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth > 800;
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
 
-    String _roleLabel(String? role) {
-      switch (role) {
-        case 'admin': return 'مدير';
-        case 'store_owner': return 'صاحب متجر';
-        case 'supplier': return 'مورد';
-        case 'warehouse_manager': return 'مدير مخزن';
-        default: return role ?? 'غير محدد';
-      }
+        return Scaffold(
+          backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+          body: isDesktop ? _buildDesktop(context, isDark) : _buildMobile(context, isDark),
+        );
+      },
+    );
+  }
+
+  String _roleLabel(String? role) {
+    switch (role) {
+      case 'admin': return 'مدير';
+      case 'store_owner': return 'صاحب متجر';
+      case 'supplier': return 'مورد';
+      case 'warehouse_manager': return 'مدير مخزن';
+      default: return role ?? 'غير محدد';
     }
+  }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('الملف الشخصي')),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              theme.colorScheme.background,
-              theme.colorScheme.background.withOpacity(0.9),
-              theme.colorScheme.primary.withOpacity(0.05),
+  Widget _buildAvatar() {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.secondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.35),
+            blurRadius: 30,
+            spreadRadius: 2,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          (_profile?['full_name'] as String? ?? 'م').substring(0, 1),
+          style: GoogleFonts.manrope(
+            fontSize: 48,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserInfo() {
+    return Column(
+      children: [
+        Text(
+          _profile?['full_name'] as String? ?? 'المستخدم',
+          style: GoogleFonts.manrope(fontSize: 26, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+          ),
+          child: Text(
+            _roleLabel(_profile?['role'] as String?),
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard() {
+    final user = _supabase.auth.currentUser;
+    return AnimatedGlassCard(
+      padding: const EdgeInsets.all(24),
+      borderRadius: 24,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('معلومات الحساب', style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 24),
+          _InfoRow(icon: Icons.email_outlined, label: 'البريد الإلكتروني', value: user?.email ?? 'غير متوفر'),
+          const SizedBox(height: 20),
+          _InfoRow(icon: Icons.phone_outlined, label: 'رقم الهاتف', value: _profile?['phone_number'] as String? ?? 'غير محدد'),
+          const SizedBox(height: 20),
+          _InfoRow(icon: Icons.badge_outlined, label: 'الصلاحية', value: _roleLabel(_profile?['role'] as String?)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton() {
+    return AnimatedGlassCard(
+      padding: const EdgeInsets.all(4),
+      borderRadius: 20,
+      onTap: _signOut,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.error.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.logout_rounded, color: AppColors.error),
+        ),
+        title: Text(
+          'تسجيل الخروج',
+          style: GoogleFonts.manrope(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.error),
+      ),
+    );
+  }
+
+  Widget _buildMobile(BuildContext context, bool isDark) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(isDark ? 0.4 : 0.05), blurRadius: 40, offset: const Offset(0, 20)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20)],
+                ),
+                child: const Icon(Icons.person_rounded, color: AppColors.primary, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Text('الملف الشخصي', style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
             ],
           ),
         ),
-        child: SafeArea(
+        Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : ListView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   children: [
-                    // Avatar Section
-                    Center(
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppColors.primary, AppColors.secondary],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                (_profile?['full_name'] as String? ?? 'م').substring(0, 1),
-                                style: const TextStyle(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _profile?['full_name'] as String? ?? 'المستخدم',
-                            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              _roleLabel(_profile?['role'] as String?),
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Info Section
-                    AnimatedGlassCard(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('معلومات الحساب', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                          const Divider(height: 24),
-                          _InfoRow(icon: Icons.email_outlined, label: 'البريد الإلكتروني', value: user?.email ?? 'غير متوفر'),
-                          const SizedBox(height: 12),
-                          _InfoRow(icon: Icons.phone_outlined, label: 'رقم الهاتف', value: _profile?['phone_number'] as String? ?? 'غير محدد'),
-                          const SizedBox(height: 12),
-                          _InfoRow(icon: Icons.badge_outlined, label: 'الصلاحية', value: _roleLabel(_profile?['role'] as String?)),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Logout Button
-                    AnimatedGlassCard(
-                      padding: const EdgeInsets.all(4),
-                      onTap: _signOut,
-                      child: ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.error.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.logout_rounded, color: AppColors.error),
-                        ),
-                        title: const Text(
-                          'تسجيل الخروج',
-                          style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold),
-                        ),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.error),
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+                    Center(child: _buildAvatar()),
+                    const SizedBox(height: 20),
+                    Center(child: _buildUserInfo()),
+                    const SizedBox(height: 48),
+                    _buildInfoCard(),
+                    const SizedBox(height: 24),
+                    _buildLogoutButton(),
+                    const SizedBox(height: 100), // spacing for bottom nav
                   ],
                 ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildDesktop(BuildContext context, bool isDark) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    return Padding(
+      padding: const EdgeInsets.all(48),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('الملف الشخصي', style: GoogleFonts.manrope(fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1)),
+          const SizedBox(height: 48),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Avatar Side
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    children: [
+                      _buildAvatar(),
+                      const SizedBox(height: 24),
+                      _buildUserInfo(),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 64),
+                // Details Side
+                Expanded(
+                  flex: 7,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInfoCard(),
+                      const SizedBox(height: 32),
+                      _buildLogoutButton(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -226,8 +311,8 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              Text(label, style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+              Text(value, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15)),
             ],
           ),
         ),

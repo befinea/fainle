@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
-
+import 'core/theme/app_colors.dart';
 import 'core/theme/theme_provider.dart';
 
 Future<void> main() async {
@@ -72,9 +72,30 @@ class MyApp extends ConsumerWidget {
       ],
       routerConfig: AppRouter.router,
       builder: (context, child) {
+        final isDark = themeMode == ThemeMode.dark || 
+                      (themeMode == ThemeMode.system && 
+                       WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
         return Directionality(
           textDirection: TextDirection.rtl,
-          child: child!,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.backgroundDark : null,
+              gradient: isDark 
+                  ? null 
+                  : const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFBFBFF), // Very soft tinted white
+                        Color(0xFFF3EDFA), // Soft purple wave
+                        Color(0xFFEDF2FA), // Soft blue wave
+                        Color(0xFFFBFBFF),
+                      ],
+                      stops: [0.0, 0.35, 0.65, 1.0],
+                    ),
+            ),
+            child: child!,
+          ),
         );
       },
     );

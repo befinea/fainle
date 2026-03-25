@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:barcode/barcode.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/haptic_helper.dart';
+import '../../../ui/widgets/glass_toast.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String productId;
@@ -155,20 +157,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       _fetchProduct();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('تم تحديث المنتج بنجاح ✓'),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+        HapticHelper.success();
+        GlassToast.show(context, 'تم تحديث المنتج بنجاح ✓', type: ToastType.success);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في التحديث: $e'), backgroundColor: AppColors.error),
-        );
+        HapticHelper.error();
+        GlassToast.show(context, 'خطأ في التحديث: $e', type: ToastType.error);
       }
     }
   }
@@ -195,21 +190,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       try {
         await _supabase.from('products').delete().eq('id', widget.productId);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('تم حذف المنتج بنجاح'),
-              backgroundColor: AppColors.success,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          );
-          Navigator.pop(context, true); // true = product was deleted
+          HapticHelper.success();
+          GlassToast.show(context, 'تم حذف المنتج بنجاح', type: ToastType.success);
+          Navigator.pop(context, true);
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('خطأ في الحذف: $e'), backgroundColor: AppColors.error),
-          );
+          HapticHelper.error();
+          GlassToast.show(context, 'خطأ في الحذف: $e', type: ToastType.error);
         }
       }
     }
@@ -232,22 +220,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       setState(() => _showBarcode = true);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('تم إنتاج الباركود: $sku'),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+        HapticHelper.success();
+        GlassToast.show(context, 'تم إنتاج الباركود: $sku', type: ToastType.success);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e'), backgroundColor: AppColors.error),
-        );
+        HapticHelper.error();
+        GlassToast.show(context, 'خطأ: $e', type: ToastType.error);
       }
     }
+  }
+
+  Color _getCategoryColor() {
+    if (_categoryName == null || _categoryName!.isEmpty) return AppColors.primary;
+    // Simple hash to generate a consistent color for a specific category
+    int hash = 0;
+    for (int i = 0; i < _categoryName!.length; i++) {
+      hash = _categoryName!.codeUnitAt(i) + ((hash << 5) - hash);
+    }
+    final hue = (hash % 360).abs().toDouble();
+    return HSVColor.fromAHSV(1.0, hue, 0.7, 0.9).toColor();
   }
 
   @override
@@ -271,20 +263,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final sku = _product!['generated_sku']?.toString() ?? '';
     final hasBarcode = sku.isNotEmpty;
 
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              theme.colorScheme.surface,
-              theme.colorScheme.surface,
-              AppColors.primary.withValues(alpha: 0.05),
-            ],
+    final dynamicColor = _getCategoryColor();
+    final dynamicTheme = theme.copyWith(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: dynamicColor,
+        brightness: theme.brightness,
+      ),
+    );
+
+    return Theme(
+      data: dynamicTheme,
+      child: Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                dynamicTheme.colorScheme.surface,
+                dynamicTheme.colorScheme.surface,
+                dynamicColor.withOpacity(0.05),
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
+          child: SafeArea(
           child: CustomScrollView(
             slivers: [
               // App Bar
@@ -320,13 +322,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                AppColors.primary.withValues(alpha: 0.2),
-                                AppColors.primary.withValues(alpha: 0.08),
+                                dynamicColor.withOpacity(0.2),
+                                dynamicColor.withOpacity(0.08),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(24),
                           ),
-                          child: Icon(Icons.inventory_2_rounded, size: 48, color: AppColors.primary),
+                          child: Icon(Icons.inventory_2_rounded, size: 48, color: dynamicColor),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -343,10 +345,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
+                              color: dynamicColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Text(_categoryName!, style: TextStyle(color: AppColors.primary, fontSize: 13)),
+                            child: Text(_categoryName!, style: TextStyle(color: dynamicColor, fontSize: 13)),
                           ),
                         ),
                       ],
@@ -365,7 +367,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       if (hasBarcode) ...[
                         const SizedBox(height: 12),
-                        _buildInfoRow(Icons.qr_code_rounded, 'الرقم التسلسلي', sku, AppColors.primary),
+                        _buildInfoRow(Icons.qr_code_rounded, 'الرقم التسلسلي', sku, dynamicColor, dynamicTheme),
                       ],
 
                       const SizedBox(height: 28),
@@ -379,7 +381,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           icon: const Icon(Icons.qr_code_2_rounded),
                           label: Text(hasBarcode ? 'عرض الباركود' : 'إنتاج باركود'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF7C3AED),
+                            backgroundColor: dynamicColor,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
@@ -437,20 +439,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, Color color) {
-    final theme = Theme.of(context);
+  Widget _buildInfoRow(IconData icon, String label, String value, Color color, [ThemeData? localTheme]) {
+    final theme = localTheme ?? Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
+        border: Border.all(color: color.withOpacity(0.15)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -462,7 +464,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 22),

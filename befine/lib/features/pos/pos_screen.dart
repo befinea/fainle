@@ -1,7 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../ui/widgets/animated_glass_card.dart';
 import 'invoice_view.dart';
@@ -164,11 +166,16 @@ class _PosScreenState extends State<PosScreen> {
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
 
-        return Container(
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: isDark ? 20 : 5, sigmaY: isDark ? 20 : 5),
+            child: Container(
           height: MediaQuery.of(context).size.height * 0.85,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+            color: isDark ? AppColors.surfaceContainerHigh.withOpacity(0.92) : Colors.white,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: isDark ? Border.all(color: AppColors.ghostBorder, width: 1) : null,
           ),
           child: Column(
             children: [
@@ -382,6 +389,8 @@ class _PosScreenState extends State<PosScreen> {
               ),
             ],
           ),
+        ),
+          ),
         );
       },
     );
@@ -525,180 +534,512 @@ class _PosScreenState extends State<PosScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [AppColors.primary.withOpacity(0.2), AppColors.primary.withOpacity(0.05)]),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(Icons.point_of_sale_rounded, color: AppColors.primary, size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Text('نقطة البيع', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  ),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SalesHistoryScreen()),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(Icons.receipt_long_rounded, color: AppColors.success, size: 24),
-                    ),
-                  ),
-                ],
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth > 800;
+        return Scaffold(
+          backgroundColor: isDark ? AppColors.backgroundDark : null,
+          body: isDesktop ? _buildDesktop(context, isDark) : _buildMobile(context, isDark),
+        );
+      },
+    );
+  }
+
+  // ─── Mobile Layout (Stitch Exact match) ───
+  Widget _buildMobile(BuildContext context, bool isDark) {
+    return Column(
+      children: [
+        // TopAppBar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16), // px-6 py-4
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6), // bg-slate-900/40
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)), // rounded-b-2xl
+              border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))), // border-b border-white/10
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(isDark ? 0.4 : 0.05), blurRadius: 40, offset: const Offset(0, 20)),
+              ],
             ),
-
-            const SizedBox(height: 20),
-
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: _searchProducts,
-                decoration: InputDecoration(
-                  hintText: 'ابحث عن منتج بالاسم أو الباركود...',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_searchCtrl.text.isNotEmpty)
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            setState(() => _searchResults = []);
-                          },
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.qr_code_scanner_rounded),
-                        color: AppColors.primary,
-                        onPressed: () async {
-                          final code = await context.push<String>('/scanner?returnMode=true');
-                          if (code != null && code.isNotEmpty) {
-                            _searchCtrl.text = code;
-                            _searchProducts(code);
-                          }
-                        },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8), // p-2
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1), // bg-primary/10
+                        borderRadius: BorderRadius.circular(12), // rounded-xl
+                        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20)], // shadow-[0_0_20px_rgba(133,173,255,0.3)]
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
-                  filled: true,
-                  fillColor: isDark ? Colors.white.withOpacity(0.06) : Colors.white,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                      child: const Icon(Icons.point_of_sale_rounded, color: AppColors.primary, size: 24),
+                    ),
+                    const SizedBox(width: 12), // gap-3
+                    Text('نقطة البيع', style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                  ],
+                ),
+                InkWell(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesHistoryScreen())),
+                  borderRadius: BorderRadius.circular(12), // rounded-xl
+                  child: Container(
+                    width: 40, height: 40, // w-10 h-10
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withOpacity(0.1), // bg-secondary/10
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.receipt_long_rounded, color: AppColors.success),
                   ),
                 ),
-              ),
+              ],
             ),
+          ),
 
-            const SizedBox(height: 16),
-
-            // Results
-            Expanded(
-              child: _isSearching
-                  ? const Center(child: CircularProgressIndicator())
-                  : _searchResults.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.search_rounded, size: 80, color: Colors.grey.withOpacity(0.2)),
-                              const SizedBox(height: 16),
-                              Text(
-                                _searchCtrl.text.isEmpty ? 'ابحث عن منتج للبدء' : 'لا توجد نتائج',
-                                style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
-                              ),
-                            ],
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 120), // px-5 py-6 pb-32
+              children: [
+                // Search Bar
+                AnimatedGlassCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  borderRadius: 16, // rounded-2xl
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: _searchProducts,
+                    style: GoogleFonts.inter(),
+                    decoration: InputDecoration(
+                      hintText: 'ابحث عن منتج بالاسم أو الباركود...',
+                      hintStyle: GoogleFonts.inter(color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                      prefixIcon: Icon(Icons.search_rounded, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_searchCtrl.text.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _searchResults = []);
+                              },
+                            ),
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: 1, height: 24,
+                            color: Colors.white.withOpacity(0.1),
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: _searchResults.length,
-                          itemBuilder: (ctx, i) {
-                            final p = _searchResults[i];
-                            final stock = (p['_stock'] as int?) ?? 0;
-                            final outOfStock = stock <= 0;
-                            final price = (p['sale_price'] as num?)?.toDouble() ?? 0;
+                          Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                              color: AppColors.primary,
+                              onPressed: () async {
+                                final code = await context.push<String>('/scanner?returnMode=true');
+                                if (code != null && code.isNotEmpty) {
+                                  _searchCtrl.text = code;
+                                  _searchProducts(code);
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                      ),
+                      filled: true,
+                      fillColor: Colors.transparent,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: AnimatedGlassCard(
-                                onTap: () => _openPurchaseSheet(p),
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: (outOfStock ? Colors.grey : AppColors.primary).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: Icon(
-                                        outOfStock ? Icons.block_rounded : Icons.shopping_bag_rounded,
-                                        color: outOfStock ? Colors.grey : AppColors.primary,
-                                        size: 24,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(p['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                          const SizedBox(height: 6),
-                                          Row(
-                                            children: [
-                                              Text('$price د', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                                              const SizedBox(width: 10),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color: (outOfStock ? AppColors.error : AppColors.success).withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Text(
-                                                  outOfStock ? 'نفذ' : 'متوفر: $stock',
-                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
-                                                      color: outOfStock ? AppColors.error : AppColors.success),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(Icons.arrow_back_ios_rounded, size: 16, color: Colors.grey),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+                const SizedBox(height: 32), // space-y-8
+
+                // Product List
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('النتائج المعروضة', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 18)),
+                    Text('${_searchResults.length} منتجات عرضت', style: GoogleFonts.inter(fontSize: 12, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+                  ],
+                ),
+                const SizedBox(height: 16), // space-y-4
+
+                if (_isSearching)
+                  const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+                else if (_searchResults.isEmpty)
+                   Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Text(
+                          _searchCtrl.text.isEmpty ? 'ابحث للبدء في البيع' : 'لا توجد نتائج',
+                          style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
                         ),
+                      ),
+                    )
+                else
+                  ..._searchResults.map((p) => _buildMobileProductCard(p, isDark)).toList(),
+              ],
             ),
+          ),
+        ],
+      );
+  }
+
+  Widget _buildMobileProductCard(Map<String, dynamic> p, bool isDark) {
+    final stock = (p['_stock'] as int?) ?? 0;
+    final outOfStock = stock <= 0;
+    final price = (p['sale_price'] as num?)?.toDouble() ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16), // space-y-4
+      child: AnimatedGlassCard(
+        onTap: outOfStock ? null : () => _openPurchaseSheet(p),
+        padding: const EdgeInsets.all(16), // p-4
+        borderRadius: 24, // rounded-3xl
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 56, height: 56, // w-14 h-14
+                  decoration: BoxDecoration(
+                    color: (outOfStock ? Colors.grey : AppColors.primary).withOpacity(0.1), // bg-surface-variant
+                    borderRadius: BorderRadius.circular(16), // rounded-2xl
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)], // shadow-inner
+                  ),
+                  child: Icon(
+                    Icons.shopping_bag_rounded,
+                    color: outOfStock ? Colors.grey : AppColors.primary,
+                    size: 32, // text-3xl
+                  ),
+                ),
+                const SizedBox(width: 16), // gap-4
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p['name'] ?? '',
+                      style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16, color: outOfStock ? Colors.grey : null),
+                    ),
+                    const SizedBox(height: 4), // space-y-1
+                    Row(
+                      children: [
+                        Text('$price د', style: GoogleFonts.manrope(color: outOfStock ? Colors.grey : AppColors.primary, fontWeight: FontWeight.bold, fontSize: 18)),
+                        const SizedBox(width: 12), // gap-3
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // px-2 py-0.5
+                          decoration: BoxDecoration(
+                            color: (outOfStock ? AppColors.error : AppColors.success).withOpacity(0.2), // bg-secondary-container/30
+                            borderRadius: BorderRadius.circular(999), // rounded-full
+                          ),
+                          child: Text(
+                            outOfStock ? 'نفذ' : 'متوفر: $stock',
+                            style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: outOfStock ? AppColors.error : AppColors.success),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Icon(Icons.chevron_left_rounded, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
           ],
         ),
       ),
     );
   }
+
+  // ─── Desktop Layout (Stitch Exact match) ───
+  Widget _buildDesktop(BuildContext context, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(32).copyWith(top: 48), // p-8 lg:p-12 mt-12
+      child: Column(
+        children: [
+          // TopNavBar Structure
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // User Info Right (flex-row-reverse rtl)
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.surfaceContainerHigh : Colors.grey.shade200, // bg-surface-variant
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.account_circle_rounded, size: 24),
+                  ),
+                  const SizedBox(width: 16), // gap-4
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_sellerName ?? 'المستخدم', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text('نقطة البيع - المتجر الدائم', style: GoogleFonts.manrope(fontSize: 10, letterSpacing: 1.5, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)), // text-[10px] uppercase tracking-widest
+                    ],
+                  ),
+                ],
+              ),
+              // Title & Button Left
+              Row(
+                children: [
+                  InkWell(
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SalesHistoryScreen())),
+                    borderRadius: BorderRadius.circular(999),
+                    child: AnimatedGlassCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10), // px-6 py-2.5
+                      borderRadius: 999, // rounded-full
+                      child: Row(
+                        children: [
+                          const Icon(Icons.receipt_long_rounded, color: AppColors.success), // text-secondary
+                          const SizedBox(width: 8), // gap-2
+                          Text('سجل المبيعات', style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 24), // gap-6
+                  Text('نقطة البيع', style: GoogleFonts.manrope(fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1)), // text-4xl font-extrabold tracking-tight
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 64), // mb-16 (4rem -> 64px)
+
+          // Search Section
+          SizedBox(
+            width: 1024, // max-w-5xl
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.05), // bg-primary/5
+                      borderRadius: BorderRadius.circular(999), // rounded-full
+                      boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.5), blurRadius: 40)], // blur-3xl opacity-50
+                    ),
+                  ),
+                ),
+                AnimatedGlassCard(
+                  padding: const EdgeInsets.all(8), // p-2
+                  borderRadius: 16, // rounded-2xl
+                  child: Row(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 24, left: 16), // pr-6
+                        child: Icon(Icons.search_rounded, size: 24, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight), // text-2xl
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: _searchProducts,
+                          style: GoogleFonts.inter(fontSize: 20), // text-xl
+                          decoration: InputDecoration(
+                            hintText: 'ابحث عن منتج بالاسم أو الباركود...',
+                            hintStyle: GoogleFonts.inter(color: (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight).withOpacity(0.5)), // placeholder:text-on-surface-variant/50
+                            filled: true,
+                            fillColor: Colors.transparent,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 24), // py-4
+                          ),
+                        ),
+                      ),
+                      if (_searchCtrl.text.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 24),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchResults = []);
+                          },
+                        ),
+                      InkWell(
+                        onTap: () async {
+                           final code = await context.push<String>('/scanner?returnMode=true');
+                           if (code != null && code.isNotEmpty) {
+                             _searchCtrl.text = code;
+                             _searchProducts(code);
+                           }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), // px-6 py-4
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(12), // rounded-xl
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.qr_code_scanner_rounded, color: Colors.white), // text-on-primary-container
+                              const SizedBox(width: 8), // gap-2
+                              Text('ماسح الرمز', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 64),
+
+          // Results Table
+          Expanded(
+            child: SizedBox(
+              width: 1152, // max-w-6xl
+              child: AnimatedGlassCard(
+                padding: EdgeInsets.zero,
+                borderRadius: 24, // rounded-3xl
+                child: Column(
+                  children: [
+                    // Table Header
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24), // px-8 py-6
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05), // bg-white/5
+                        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))), // border-b border-white/5
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(flex: 3, child: Text('المنتج', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight))), // text-sm
+                          Expanded(flex: 2, child: Text('سعر البيع', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight))),
+                          Expanded(flex: 2, child: Text('حالة المخزون', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight))),
+                          Expanded(flex: 2, child: Text('إجراء', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight))),
+                        ],
+                      ),
+                    ),
+                    
+                    // Table Body
+                    Expanded(
+                      child: _isSearching
+                      ? const Center(child: CircularProgressIndicator())
+                      : _searchResults.isEmpty
+                         ? Center(child: Text(_searchCtrl.text.isEmpty ? 'ابحث عن منتج للبدء' : 'لا توجد نتائج', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 18)))
+                         : ListView.builder(
+                              itemCount: _searchResults.length,
+                              itemBuilder: (context, index) {
+                                final p = _searchResults[index];
+                                final stock = (p['_stock'] as int?) ?? 0;
+                                final outOfStock = stock <= 0;
+                                final price = (p['sale_price'] as num?)?.toDouble() ?? 0;
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24), // px-8 py-6
+                                  decoration: BoxDecoration(
+                                    border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))), // divide-y divide-white/5
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 48, height: 48, // w-12 h-12
+                                              decoration: BoxDecoration(
+                                                color: isDark ? AppColors.surfaceContainerHigh : Colors.grey.shade200, // bg-surface-container-highest
+                                                borderRadius: BorderRadius.circular(16), // rounded-2xl
+                                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)], // shadow-inner
+                                              ),
+                                              child: Icon(Icons.shopping_bag_rounded, color: outOfStock ? Colors.grey : AppColors.primary),
+                                            ),
+                                            const SizedBox(width: 16), // gap-4
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(p['name'] ?? '', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 18, color: outOfStock ? Colors.grey : null)), // text-lg
+                                                Text('منتج متاح', style: GoogleFonts.inter(fontSize: 12, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)), // text-xs
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Row(
+                                          children: [
+                                            Text('$price', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 20, letterSpacing: -0.5, color: outOfStock ? Colors.grey : null)), // text-xl tracking-tight
+                                            const SizedBox(width: 4), // mr-1
+                                            Text('د.ع', style: GoogleFonts.inter(fontSize: 12, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)), // text-xs
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), // px-3 py-1
+                                              decoration: BoxDecoration(
+                                                color: (outOfStock ? AppColors.error : AppColors.success).withOpacity(0.2), // bg-secondary-container/20
+                                                borderRadius: BorderRadius.circular(999), // rounded-full
+                                                border: Border.all(color: (outOfStock ? AppColors.error : AppColors.success).withOpacity(0.2)), // border
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    width: 6, height: 6, // w-1.5 h-1.5
+                                                    decoration: BoxDecoration(
+                                                      color: outOfStock ? AppColors.error : AppColors.success,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6), // gap-1.5
+                                                  Text(outOfStock ? 'نفذ المخزون' : 'متوفر: $stock', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 12, color: outOfStock ? AppColors.error : AppColors.success)), // text-xs font-bold
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Align(
+                                          alignment: Alignment.centerLeft, // text-left
+                                          child: InkWell(
+                                            onTap: outOfStock ? null : () => _openPurchaseSheet(p),
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10), // px-8 py-2.5
+                                              decoration: BoxDecoration(
+                                                color: outOfStock ? (isDark ? AppColors.surfaceContainerHigh : Colors.grey.shade300) : AppColors.primary.withOpacity(0.1), // glass-panel or bg-surface-variant
+                                                borderRadius: BorderRadius.circular(12), // rounded-xl
+                                                border: Border.all(color: outOfStock ? Colors.transparent : AppColors.primary.withOpacity(0.2)), // border-primary/20
+                                              ),
+                                              child: Text('بيع الآن', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: outOfStock ? Colors.grey : AppColors.primary)), // font-bold
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                           ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+

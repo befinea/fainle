@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
@@ -100,6 +101,7 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final userState = ref.watch(authProvider);
     final isSupplier = userState.user?.role == 'supplier';
 
@@ -109,57 +111,151 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
     return DefaultTabController(
       length: tabs.length,
       initialIndex: _getInitialIndex(isSupplier).clamp(0, tabs.length - 1),
-      child: Scaffold(
-        body: Container(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth > 800;
+
+        return Scaffold(
+          backgroundColor: isDark ? AppColors.backgroundDark : null,
+          body: isDesktop ? _buildDesktop(context, isDark, tabs, tabViews) : _buildMobile(context, isDark, tabs, tabViews),
+        );
+      }),
+    );
+  }
+
+  Widget _buildMobile(BuildContext context, bool isDark, List<Tab> tabs, List<Widget> tabViews) {
+    return Column(
+      children: [
+        // Top appBar matches Mobile stitching
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16), // SafeArea top padding incorporated approx
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                theme.colorScheme.background,
-                theme.colorScheme.background.withOpacity(0.95),
-                theme.colorScheme.primary.withOpacity(0.05),
-              ],
-            ),
+            color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(isDark ? 0.4 : 0.05), blurRadius: 40, offset: const Offset(0, 20)),
+            ],
           ),
           child: Column(
             children: [
-              SafeArea(
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('العمليات', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                          IconButton(
-                            icon: const Icon(Icons.tune_rounded),
-                            onPressed: () {},
-                            style: IconButton.styleFrom(
-                              backgroundColor: theme.colorScheme.surface,
-                              foregroundColor: theme.colorScheme.onSurface,
-                              padding: const EdgeInsets.all(12),
-                            ),
-                          ),
-                        ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                   Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20)],
+                        ),
+                        child: const Icon(Icons.sync_alt_rounded, color: AppColors.primary, size: 24),
                       ),
+                      const SizedBox(width: 12),
+                      Text('العمليات', style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                    ],
+                  ),
+                  InkWell(
+                    onTap: () {},
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.tune_rounded, color: AppColors.primary),
                     ),
-                    TabBar(
-                      isScrollable: true,
-                      indicatorSize: TabBarIndicatorSize.label,
-                      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      unselectedLabelColor: Colors.grey,
-                      tabs: tabs,
-                    ),
-                    const SizedBox(height: 10),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              // Glass Tabs Mobile
+              Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.surfaceContainerHigh.withOpacity(0.5) : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(16),
+                  border: isDark ? Border.all(color: AppColors.ghostBorder) : null,
+                ),
+                child: TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  indicator: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.primary,
+                    boxShadow: [
+                      BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  labelColor: Colors.white,
+                  unselectedLabelColor: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                  labelStyle: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14),
+                  unselectedLabelStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 14),
+                  tabs: tabs,
                 ),
               ),
-              Expanded(child: TabBarView(children: tabViews)),
             ],
           ),
         ),
+        Expanded(child: TabBarView(children: tabViews)),
+      ],
+    );
+  }
+
+  Widget _buildDesktop(BuildContext context, bool isDark, List<Tab> tabs, List<Widget> tabViews) {
+    return Padding(
+      padding: const EdgeInsets.all(32).copyWith(top: 48),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('إدارة العمليات', style: GoogleFonts.manrope(fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1)),
+              InkWell(
+                onTap: () {},
+                borderRadius: BorderRadius.circular(999),
+                child: AnimatedGlassCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  borderRadius: 999,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.tune_rounded, color: AppColors.primary, size: 20),
+                      const SizedBox(width: 8),
+                      Text('تصفية العمليات', style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 48),
+          Container(
+             decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05))),
+             ),
+             child: TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: Colors.transparent,
+                indicator: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: AppColors.primary, width: 3)),
+                ),
+                labelColor: AppColors.primary,
+                unselectedLabelColor: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                labelStyle: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16),
+                unselectedLabelStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 16),
+                tabs: tabs.map((t) => Padding(padding: const EdgeInsets.only(bottom: 12), child: t)).toList(),
+             ),
+          ),
+          const SizedBox(height: 32),
+          Expanded(child: TabBarView(children: tabViews)),
+        ],
       ),
     );
   }
@@ -237,8 +333,9 @@ class _QuickAddCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  Text(title, style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
                 ],
               ),
             ),
@@ -357,12 +454,12 @@ class _TransactionListTabState extends State<_TransactionListTab> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('$label #${t['id'].toString().substring(0, 8)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  Text((t['locations'] as Map<String, dynamic>?)?['name']?.toString() ?? 'متجر غير معروف', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                                  Text('$label #${t['id'].toString().substring(0, 8)}', style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+                                  Text((t['locations'] as Map<String, dynamic>?)?['name']?.toString() ?? 'متجر غير معروف', style: GoogleFonts.inter(fontSize: 12, color: Theme.of(ctx).brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
                                 ],
                               ),
                             ),
-                            Text('${t['total_amount']} د', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                            Text('${t['total_amount']} د', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
                           ],
                         ),
                       ),

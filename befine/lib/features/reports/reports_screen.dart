@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
@@ -30,52 +31,150 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_companyId == null) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.background,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.background,
-            theme.colorScheme.background.withOpacity(0.9),
-            theme.colorScheme.primary.withOpacity(0.05),
-          ],
-        ),
-      ),
-      child: DefaultTabController(
-        length: 3,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            title: Text('التقارير والتحليلات', style: theme.textTheme.titleLarge),
-            bottom: TabBar(
-              indicatorColor: AppColors.primary,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: Colors.grey,
-              indicator: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: AppColors.primary.withOpacity(0.1),
+    return DefaultTabController(
+      length: 3,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth > 800;
+        return Scaffold(
+          backgroundColor: isDark ? AppColors.backgroundDark : null,
+          body: isDesktop ? _buildDesktop(context, isDark) : _buildMobile(context, isDark),
+        );
+      }),
+    );
+  }
+
+  Widget _buildMobile(BuildContext context, bool isDark) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(isDark ? 0.4 : 0.05), blurRadius: 40, offset: const Offset(0, 20)),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20)],
+                        ),
+                        child: const Icon(Icons.analytics_rounded, color: AppColors.primary, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Text('التقارير والتحليلات', style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                    ],
+                  ),
+                ],
               ),
-              tabs: const [
-                Tab(text: 'المبيعات'),
-                Tab(text: 'المخزون'),
-                Tab(text: 'الأرباح'),
+              const SizedBox(height: 24),
+              // Glass Tabs Mobile
+              Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.surfaceContainerHigh.withOpacity(0.5) : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(16),
+                  border: isDark ? Border.all(color: AppColors.ghostBorder) : null,
+                ),
+                child: TabBar(
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  indicator: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.primary,
+                    boxShadow: [
+                      BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  labelColor: Colors.white,
+                  unselectedLabelColor: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                  labelStyle: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 13),
+                  unselectedLabelStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 13),
+                  tabs: const [
+                    Tab(text: 'المبيعات'),
+                    Tab(text: 'المخزون'),
+                    Tab(text: 'الأرباح'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            children: [
+              _SalesReport(companyId: _companyId!),
+              _StockReport(companyId: _companyId!),
+              _ProfitReport(companyId: _companyId!),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktop(BuildContext context, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(32).copyWith(top: 48),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('التقارير والتحليلات', style: GoogleFonts.manrope(fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1)),
+          const SizedBox(height: 48),
+          Container(
+             decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05))),
+             ),
+             child: TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: Colors.transparent,
+                indicator: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: AppColors.primary, width: 3)),
+                ),
+                labelColor: AppColors.primary,
+                unselectedLabelColor: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                labelStyle: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 16),
+                unselectedLabelStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 16),
+                tabs: const [
+                  Padding(padding: EdgeInsets.only(bottom: 12), child: Tab(text: 'المبيعات')),
+                  Padding(padding: EdgeInsets.only(bottom: 12), child: Tab(text: 'المخزون')),
+                  Padding(padding: EdgeInsets.only(bottom: 12), child: Tab(text: 'الأرباح')),
+                ],
+             ),
+          ),
+          const SizedBox(height: 32),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _SalesReport(companyId: _companyId!),
+                _StockReport(companyId: _companyId!),
+                _ProfitReport(companyId: _companyId!),
               ],
             ),
           ),
-          body: _companyId == null
-              ? const Center(child: CircularProgressIndicator())
-              : TabBarView(
-                  children: [
-                    _SalesReport(companyId: _companyId!),
-                    _StockReport(companyId: _companyId!),
-                    _ProfitReport(companyId: _companyId!),
-                  ],
-                ),
-        ),
+        ],
       ),
     );
   }

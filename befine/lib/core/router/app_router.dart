@@ -29,10 +29,26 @@ import '../../features/ai_assistant/presentation/ai_assistant_screen.dart';
 import '../../features/barcode/barcode_print_screen.dart';
 import '../../ui/screens/main_shell.dart';
 import '../../ui/screens/web_shell.dart';
+import '../../ui/screens/splash_screen.dart';
+
+/// Smooth fade transition for page navigation
+CustomTransitionPage<void> _fadeTransitionPage({
+  required Widget child,
+  required GoRouterState state,
+}) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(opacity: animation, child: child);
+    },
+    transitionDuration: const Duration(milliseconds: 300),
+  );
+}
 
 class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: '/auth',
+    initialLocation: '/splash',
 
     // Auth-aware redirect
     redirect: (context, state) async {
@@ -41,6 +57,10 @@ class AppRouter {
       final currentPath = state.uri.toString();
       final isAuthPage = currentPath == '/auth';
       final isOnboardingPage = currentPath == '/onboarding';
+      final isSplashPage = currentPath == '/splash';
+
+      // Allow splash screen to show without redirect
+      if (isSplashPage) return null;
 
       if (!isLoggedIn && !isAuthPage) {
         // Not logged in → go to auth
@@ -70,16 +90,31 @@ class AppRouter {
     },
 
     routes: [
+      // Splash Screen
+      GoRoute(
+        path: '/splash',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const SplashScreen(),
+        ),
+      ),
+
       // Auth (Login / Register)
       GoRoute(
         path: '/auth',
-        builder: (context, state) => const AuthScreen(),
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AuthScreen(),
+        ),
       ),
 
       // Onboarding (First time company setup)
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => const OnboardingScreen(),
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const OnboardingScreen(),
+        ),
       ),
 
       // Main App Shell with Responsive Navigation
@@ -95,11 +130,17 @@ class AppRouter {
         routes: [
           GoRoute(
             path: '/dashboard',
-            builder: (context, state) => const DashboardScreen(),
+            pageBuilder: (context, state) => _fadeTransitionPage(
+              state: state,
+              child: const DashboardScreen(),
+            ),
           ),
           GoRoute(
             path: '/inventory',
-            builder: (context, state) => const InventoryScreen(),
+            pageBuilder: (context, state) => _fadeTransitionPage(
+              state: state,
+              child: const InventoryScreen(),
+            ),
             routes: [
               GoRoute(
                 path: 'warehouse/:id',
@@ -132,7 +173,10 @@ class AppRouter {
           ),
           GoRoute(
             path: '/pos',
-            builder: (context, state) => const PosScreen(),
+            pageBuilder: (context, state) => _fadeTransitionPage(
+              state: state,
+              child: const PosScreen(),
+            ),
           ),
           GoRoute(
             path: '/operations',
@@ -162,11 +206,17 @@ class AppRouter {
           ),
           GoRoute(
             path: '/reports',
-            builder: (context, state) => const ReportsScreen(),
+            pageBuilder: (context, state) => _fadeTransitionPage(
+              state: state,
+              child: const ReportsScreen(),
+            ),
           ),
           GoRoute(
             path: '/settings',
-            builder: (context, state) => const SettingsScreen(),
+            pageBuilder: (context, state) => _fadeTransitionPage(
+              state: state,
+              child: const SettingsScreen(),
+            ),
             routes: [
               GoRoute(
                 path: 'profile',

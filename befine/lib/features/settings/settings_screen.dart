@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -101,250 +102,274 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
     final isDark = themeMode == ThemeMode.dark;
-    final theme = Theme.of(context);
-    
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth > 800;
+        return Scaffold(
+          backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+          body: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : isDesktop
+                  ? _buildDesktop(context, isDark)
+                  : _buildMobile(context, isDark),
+        );
+      },
+    );
+  }
+
+  Widget _buildAvatar(bool isSupplier) {
+    final userState = ref.watch(authProvider);
+    final user = userState.user;
+    return Column(
+      children: [
+        Container(
+          width: 110,
+          height: 110,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.35),
+                blurRadius: 30,
+                spreadRadius: 2,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              (_profile?['full_name'] as String? ?? 'م').substring(0, 1),
+              style: GoogleFonts.manrope(fontSize: 44, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          user?.name ?? _profile?['full_name'] as String? ?? 'المستخدم',
+          style: GoogleFonts.manrope(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: (isSupplier ? Colors.orange : AppColors.primary).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: (isSupplier ? Colors.orange : AppColors.primary).withOpacity(0.2)),
+          ),
+          child: Text(
+            _roleLabel(user?.role ?? _profile?['role'] as String?),
+            style: TextStyle(
+              color: isSupplier ? Colors.orange : AppColors.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard(bool isDark) {
+    final userState = ref.watch(authProvider);
+    final user = userState.user;
+    return AnimatedGlassCard(
+      padding: const EdgeInsets.all(24),
+      borderRadius: 24,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('معلومات الحساب', style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          _InfoRow(icon: Icons.email_outlined, label: 'البريد الإلكتروني', value: user?.email ?? 'غير متوفر'),
+          const SizedBox(height: 16),
+          _InfoRow(icon: Icons.phone_outlined, label: 'رقم الهاتف', value: _profile?['phone_number'] as String? ?? 'غير محدد'),
+          const SizedBox(height: 16),
+          _InfoRow(icon: Icons.badge_outlined, label: 'الصلاحية', value: _roleLabel(user?.role ?? _profile?['role'] as String?)),
+          if (_companyName != null) ...[
+            const SizedBox(height: 16),
+            _InfoRow(icon: Icons.business_rounded, label: 'الشركة', value: _companyName!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildSettingsTiles(bool isDark, bool isSupplier, bool isAdmin) {
+    final themeMode = ref.watch(themeProvider);
+    final isDarkMode = themeMode == ThemeMode.dark;
+    return [
+      // Section Header
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text('خيارات النظام', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+      ),
+
+      // Theme Toggle
+      AnimatedGlassCard(
+        padding: const EdgeInsets.all(4),
+        borderRadius: 20,
+        child: SwitchListTile(
+          secondary: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isDarkMode ? Colors.amber : Colors.indigo).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              color: isDarkMode ? Colors.amber : Colors.indigo,
+            ),
+          ),
+          title: Text('الوضع الليلي', style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
+          subtitle: Text(isDarkMode ? 'مفعّل' : 'معطّل', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500)),
+          value: isDarkMode,
+          activeColor: AppColors.primary,
+          onChanged: (_) => ref.read(themeProvider.notifier).toggleTheme(),
+        ),
+      ),
+      const SizedBox(height: 12),
+
+      // Categories
+      if (!isSupplier) ...[
+        _SettingsTile(icon: Icons.category_rounded, color: Colors.teal, title: 'إدارة الأصناف', subtitle: 'إضافة وتعديل أصناف المنتجات', onTap: () => context.push('/settings/categories')),
+        const SizedBox(height: 12),
+      ],
+
+      // Admin sections
+      if (isAdmin) ...[
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12, top: 12),
+          child: Text('إدارة الشركة', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+        ),
+        if (['premium', 'gold', 'enterprise'].contains(_subscriptionPlan)) ...[
+          _SettingsTile(icon: Icons.warehouse_rounded, color: Colors.amber.shade700, title: 'إدارة المخازن', subtitle: 'إضافة مخازن خاصة بك وإدارتها', onTap: () => context.push('/inventory')),
+          const SizedBox(height: 12),
+        ],
+        _SettingsTile(icon: Icons.people_rounded, color: Colors.blue, title: 'إدارة الموظفين', subtitle: 'دعوة موظفين جدد وإدارة الصلاحيات', onTap: () => context.push('/settings/employees')),
+        const SizedBox(height: 12),
+        _SettingsTile(icon: Icons.admin_panel_settings_rounded, color: Colors.purple, title: 'صلاحيات الموظفين', subtitle: 'تحكم بالصفحات المتاحة لكل موظف', onTap: () => context.push('/settings/permissions')),
+        const SizedBox(height: 12),
+        if (_profile?['company_id'] == '00000000-0000-0000-0000-000000000001') ...[
+          _SettingsTile(icon: Icons.business_center_rounded, color: Colors.deepPurple, title: 'إدارة الشركات', subtitle: 'عرض وإدارة جميع الشركات المسجلة', onTap: () => context.push('/settings/companies')),
+          const SizedBox(height: 12),
+        ],
+        _SettingsTile(icon: Icons.history_rounded, color: Colors.orange, title: 'سجل النشاطات', subtitle: 'متابعة كل الحركات والعمليات', onTap: () => context.push('/settings/audit-log')),
+        const SizedBox(height: 12),
+      ],
+
+      // Supplier Portal
+      if (isSupplier) ...[
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12, top: 12),
+          child: Text('بوابة المورد', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+        ),
+        _SettingsTile(icon: Icons.local_shipping_rounded, color: Colors.orange, title: 'بوابة المورد', subtitle: 'عرض الحركات والفواتير الخاصة بك', onTap: () => context.push('/supplier-portal')),
+        const SizedBox(height: 12),
+      ],
+
+      // Logout
+      _SettingsTile(icon: Icons.logout_rounded, color: AppColors.error, title: 'تسجيل الخروج', subtitle: 'الخروج من الحساب الحالي', onTap: () => _signOut(context), isDestructive: true),
+      const SizedBox(height: 32),
+    ];
+  }
+
+  Widget _buildMobile(BuildContext context, bool isDark) {
     final userState = ref.watch(authProvider);
     final user = userState.user;
     final isSupplier = user?.role == 'supplier';
     final isAdmin = user?.role == 'admin' || _profile?['role'] == 'admin';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('الإعدادات', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      extendBodyBehindAppBar: true,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              theme.colorScheme.background,
-              theme.colorScheme.background.withOpacity(0.9),
-              theme.colorScheme.primary.withOpacity(0.05),
+    return Column(
+      children: [
+        // Glass Top Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(isDark ? 0.4 : 0.05), blurRadius: 40, offset: const Offset(0, 20)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20)],
+                ),
+                child: const Icon(Icons.settings_rounded, color: AppColors.primary, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Text('الإعدادات', style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
             ],
           ),
         ),
-        child: SafeArea(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    // --- Avatar Section ---
-                    Center(
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppColors.primary, AppColors.secondary],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                (_profile?['full_name'] as String? ?? 'م').substring(0, 1),
-                                style: const TextStyle(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            user?.name ?? _profile?['full_name'] as String? ?? 'المستخدم',
-                            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: (isSupplier ? Colors.orange : AppColors.primary).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              _roleLabel(user?.role ?? _profile?['role'] as String?),
-                              style: TextStyle(
-                                color: isSupplier ? Colors.orange : AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // --- Info Section ---
-                    AnimatedGlassCard(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('معلومات الحساب', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                          const Divider(height: 24),
-                          _InfoRow(icon: Icons.email_outlined, label: 'البريد الإلكتروني', value: user?.email ?? 'غير متوفر'),
-                          const SizedBox(height: 12),
-                          _InfoRow(icon: Icons.phone_outlined, label: 'رقم الهاتف', value: _profile?['phone_number'] as String? ?? 'غير محدد'),
-                          const SizedBox(height: 12),
-                          _InfoRow(icon: Icons.badge_outlined, label: 'الصلاحية', value: _roleLabel(user?.role ?? _profile?['role'] as String?)),
-                          if (_companyName != null) ...[
-                            const SizedBox(height: 12),
-                            _InfoRow(icon: Icons.business_rounded, label: 'الشركة', value: _companyName!),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text('خيارات النظام', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
-                    ),
-
-                    // --- Theme Toggle ---
-                    AnimatedGlassCard(
-                      padding: const EdgeInsets.all(4),
-                      child: SwitchListTile(
-                        secondary: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: (isDark ? Colors.amber : Colors.indigo).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                            color: isDark ? Colors.amber : Colors.indigo,
-                          ),
-                        ),
-                        title: const Text('الوضع الليلي', style: TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(isDark ? 'مفعّل' : 'معطّل', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                        value: isDark,
-                        activeColor: AppColors.primary,
-                        onChanged: (_) => ref.read(themeProvider.notifier).toggleTheme(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // --- Categories ---
-                    if (!isSupplier) ...[
-                      _SettingsTile(
-                        icon: Icons.category_rounded,
-                        color: Colors.teal,
-                        title: 'إدارة الأصناف',
-                        subtitle: 'إضافة وتعديل أصناف المنتجات',
-                        onTap: () => context.push('/settings/categories'),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    // --- Admin-only sections ---
-                    if (isAdmin) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12, top: 12),
-                        child: Text('إدارة الشركة', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
-                      ),
-
-                      // Warehouse Management (Premium / Gold / Enterprise)
-                      if (['premium', 'gold', 'enterprise'].contains(_subscriptionPlan)) ...[
-                        _SettingsTile(
-                          icon: Icons.warehouse_rounded,
-                          color: Colors.amber.shade700,
-                          title: 'إدارة المخازن',
-                          subtitle: 'إضافة مخازن خاصة بك وإدارتها',
-                          onTap: () => context.push('/inventory'),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-
-                      // Employee Management
-                      _SettingsTile(
-                        icon: Icons.people_rounded,
-                        color: Colors.blue,
-                        title: 'إدارة الموظفين',
-                        subtitle: 'دعوة موظفين جدد وإدارة الصلاحيات',
-                        onTap: () => context.push('/settings/employees'),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // RBAC Permissions
-                      _SettingsTile(
-                        icon: Icons.admin_panel_settings_rounded,
-                        color: Colors.purple,
-                        title: 'صلاحيات الموظفين',
-                        subtitle: 'تحكم بالصفحات المتاحة لكل موظف',
-                        onTap: () => context.push('/settings/permissions'),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Company Management (Super Admin only — platform admin)
-                      if (_profile?['company_id'] == '00000000-0000-0000-0000-000000000001') ...[
-                        _SettingsTile(
-                          icon: Icons.business_center_rounded,
-                          color: Colors.deepPurple,
-                          title: 'إدارة الشركات',
-                          subtitle: 'عرض وإدارة جميع الشركات المسجلة',
-                          onTap: () => context.push('/settings/companies'),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      // Audit Log
-                      _SettingsTile(
-                        icon: Icons.history_rounded,
-                        color: Colors.orange,
-                        title: 'سجل النشاطات',
-                        subtitle: 'متابعة كل الحركات والعمليات',
-                        onTap: () => context.push('/settings/audit-log'),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    // Supplier Portal (for suppliers)
-                    if (isSupplier) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12, top: 12),
-                        child: Text('بوابة المورد', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
-                      ),
-                      _SettingsTile(
-                        icon: Icons.local_shipping_rounded,
-                        color: Colors.orange,
-                        title: 'بوابة المورد',
-                        subtitle: 'عرض الحركات والفواتير الخاصة بك',
-                        onTap: () => context.push('/supplier-portal'),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    // --- Logout ---
-                    _SettingsTile(
-                      icon: Icons.logout_rounded,
-                      color: AppColors.error,
-                      title: 'تسجيل الخروج',
-                      subtitle: 'الخروج من الحساب الحالي',
-                      onTap: () => _signOut(context),
-                      isDestructive: true,
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Center(child: _buildAvatar(isSupplier)),
+              const SizedBox(height: 32),
+              _buildInfoCard(isDark),
+              const SizedBox(height: 32),
+              ..._buildSettingsTiles(isDark, isSupplier, isAdmin),
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildDesktop(BuildContext context, bool isDark) {
+    final userState = ref.watch(authProvider);
+    final user = userState.user;
+    final isSupplier = user?.role == 'supplier';
+    final isAdmin = user?.role == 'admin' || _profile?['role'] == 'admin';
+
+    return Padding(
+      padding: const EdgeInsets.all(48),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('الإعدادات', style: GoogleFonts.manrope(fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1)),
+          const SizedBox(height: 48),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left: Avatar + Info
+                Expanded(
+                  flex: 3,
+                  child: ListView(
+                    children: [
+                      _buildAvatar(isSupplier),
+                      const SizedBox(height: 32),
+                      _buildInfoCard(isDark),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 48),
+                // Right: Settings tiles
+                Expanded(
+                  flex: 7,
+                  child: ListView(
+                    children: _buildSettingsTiles(isDark, isSupplier, isAdmin),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
