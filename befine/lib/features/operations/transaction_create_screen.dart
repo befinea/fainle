@@ -35,6 +35,7 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
   Map<String, dynamic>? _selectedSupplier;
 
   final _qtyCtrl = TextEditingController(text: '1');
+  final _priceCtrl = TextEditingController(text: '0');
   int _quantity = 1;
   num _unitPrice = 0;
   num _total = 0;
@@ -45,13 +46,16 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
     _repo = OperationsRepository(Supabase.instance.client);
     _fetchWarehouses();
     _fetchSuppliers();
-    _qtyCtrl.addListener(_onQtyChanged);
+    _qtyCtrl.addListener(_onInputsChanged);
+    _priceCtrl.addListener(_onInputsChanged);
   }
 
   @override
   void dispose() {
-    _qtyCtrl.removeListener(_onQtyChanged);
+    _qtyCtrl.removeListener(_onInputsChanged);
+    _priceCtrl.removeListener(_onInputsChanged);
     _qtyCtrl.dispose();
+    _priceCtrl.dispose();
     super.dispose();
   }
 
@@ -89,11 +93,16 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
     try {
       final companyId = await _repo.getCurrentCompanyIdOrThrow();
       final data = await Supabase.instance.client
-          .from('external_entities')
-          .select('id, name, type')
-          .eq('company_id', companyId);
+          .from('profiles')
+          .select('id, full_name, role')
+          .eq('company_id', companyId)
+          .eq('role', 'supplier');
       if (mounted) {
-        setState(() => _suppliers = List<Map<String, dynamic>>.from(data));
+        setState(() => _suppliers = List<Map<String, dynamic>>.from(data.map((e) => {
+          'id': e['id'],
+          'name': e['full_name'], // map full_name to name for the UI
+          'type': 'supplier', // keep the type structure consistent
+        })));
       }
     } catch (_) {}
   }
@@ -157,6 +166,7 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
     setState(() {
       _selectedStockRow = stockRow;
       _unitPrice = _calcUnitPrice(stockRow);
+      _priceCtrl.text = _unitPrice.toString();
       _total = _unitPrice * _quantity;
     });
   }
@@ -172,9 +182,11 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
     return _isImport ? purchaseNum : saleNum;
   }
 
-  void _onQtyChanged() {
-    final parsed = int.tryParse(_qtyCtrl.text.trim());
-    final q = (parsed == null || parsed <= 0) ? 1 : parsed;
+  void _onInputsChanged() {
+    final parsedQ = int.tryParse(_qtyCtrl.text.trim());
+    final q = (parsedQ == null || parsedQ <= 0) ? 1 : parsedQ;
+    
+    final parsedP = num.tryParse(_priceCtrl.text.trim()) ?? 0;
 
     // For exports: cap quantity at available stock
     if (!_isImport && _selectedStockRow != null) {
@@ -186,9 +198,10 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
       }
     }
 
-    if (q == _quantity) return;
+    if (q == _quantity && parsedP == _unitPrice) return;
     setState(() {
       _quantity = q;
+      _unitPrice = parsedP;
       _total = _unitPrice * _quantity;
     });
   }
@@ -353,6 +366,18 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                                       ),
                                     ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _priceCtrl,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: InputDecoration(
+                                        labelText: 'سعر الوحدة',
+                                        prefixIcon: Icon(Icons.attach_money_rounded, color: theme.colorScheme.primary),
+                                        filled: true,
+                                        fillColor: Colors.white.withOpacity(0.05),
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                      ),
+                                    ),
                                   ],
                                 ],
                               ),
@@ -439,22 +464,102 @@ class _TransactionCreateScreenState extends State<TransactionCreateScreen> {
     );
   }
 
+  void _showSelectionSheet(BuildContext context, String label, String? currentValue, List<DropdownMenuItem<String>> items, ValueChanged<String?> onChanged) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final isDark = theme.brightness == Brightness.dark;
+        return Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xff1e293b) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                width: 40, height: 5,
+                decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(10)),
+              ),
+              Text('اختر $label', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                  itemCount: items.length,
+                  itemBuilder: (ctx, i) {
+                    final item = items[i];
+                    final isSelected = item.value == currentValue;
+                    return InkWell(
+                      onTap: () {
+                        onChanged(item.value);
+                        Navigator.pop(ctx);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary.withOpacity(0.1) : (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02)),
+                          borderRadius: BorderRadius.circular(12),
+                          border: isSelected ? Border.all(color: AppColors.primary.withOpacity(0.5)) : Border.all(color: Colors.transparent),
+                        ),
+                        child: DefaultTextStyle(
+                          style: TextStyle(
+                            fontSize: 16, 
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                            color: isSelected ? AppColors.primary : (isDark ? Colors.white : Colors.black87),
+                          ),
+                          child: item.child,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildDropdown({required String label, required String? value, required List<DropdownMenuItem<String>> items, required ValueChanged<String?> onChanged}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<String>(
-          value: value,
-          hint: Text(label, style: const TextStyle(fontSize: 14)),
-          items: items,
-          onChanged: onChanged,
-          decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
-          isExpanded: true,
+    Widget? selectedChild;
+    try {
+      selectedChild = items.firstWhere((e) => e.value == value).child;
+    } catch (_) {}
+
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: () => _showSelectionSheet(context, label, value, items, onChanged),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: selectedChild != null 
+                  ? DefaultTextStyle(style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black), child: selectedChild)
+                  : Text(label, style: const TextStyle(fontSize: 15, color: Colors.grey)),
+            ),
+            const Icon(Icons.arrow_drop_down_rounded, color: Colors.grey),
+          ],
         ),
       ),
     );

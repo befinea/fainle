@@ -82,32 +82,28 @@ class _PosScreenState extends State<PosScreen> {
     }
   }
 
-  /// Fetch stock for a product by checking each company location individually.
-  /// Returns -1 if no stock records exist at all (unlimited).
+  /// Fetch stock for a product across all company locations with a single query.
   /// Returns total stock across all company locations. Returns 0 if not found.
   Future<int> _getStock(String productId) async {
     try {
       if (_companyId == null) return 0;
 
-      final locs = await _supabase.from('locations').select('id').eq('company_id', _companyId!);
-      if (locs.isEmpty) return 0;
+      // Single query: join stock_levels with locations to filter by company
+      final data = await _supabase
+          .from('stock_levels')
+          .select('quantity, location_id, locations!inner(company_id)')
+          .eq('product_id', productId)
+          .eq('locations.company_id', _companyId!);
+
+      if (data.isEmpty) return 0;
 
       int total = 0;
-      for (final loc in locs) {
-        final locId = loc['id'] as String;
-        final data = await _supabase
-            .from('stock_levels')
-            .select('quantity')
-            .eq('product_id', productId)
-            .eq('location_id', locId)
-            .maybeSingle();
-        if (data != null) {
-          total += (data['quantity'] as num?)?.toInt() ?? 0;
-          _currentLocationId ??= locId;
-        }
+      for (final row in data) {
+        total += (row['quantity'] as num?)?.toInt() ?? 0;
+        _currentLocationId ??= row['location_id'] as String?;
       }
 
-      debugPrint('POS _getStock($productId): total=$total across ${locs.length} locations');
+      debugPrint('POS _getStock($productId): total=$total across ${data.length} locations');
       return total;
     } catch (e) {
       debugPrint('_getStock error: $e');
@@ -379,6 +375,7 @@ class _PosScreenState extends State<PosScreen> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(height: 180),
                             ],
                           );
                         },
@@ -438,12 +435,25 @@ class _PosScreenState extends State<PosScreen> {
         return;
       }
 
-      // Find location for transaction
-      String? locationId = _currentLocationId;
-      if (locationId == null && _companyId != null) {
-        final locs = await _supabase.from('locations').select('id').eq('company_id', _companyId!).limit(1);
-        if (locs.isNotEmpty) locationId = locs.first['id'] as String;
+      // Find the location that actually has stock for this product.
+      // The DB trigger deducts from the transaction's location_id, so it MUST
+      // match where the stock exists.
+      String? locationId;
+      if (_companyId != null) {
+        final stockLocs = await _supabase
+            .from('stock_levels')
+            .select('location_id, quantity, locations!inner(company_id)')
+            .eq('product_id', product['id'])
+            .eq('locations.company_id', _companyId!)
+            .gte('quantity', qty)
+            .order('quantity', ascending: false)
+            .limit(1);
+        if (stockLocs.isNotEmpty) {
+          locationId = stockLocs.first['location_id'] as String;
+        }
       }
+      // Fallback to _currentLocationId if no specific stock location found
+      locationId ??= _currentLocationId;
 
       // Insert transaction
       final insertData = <String, dynamic>{
@@ -469,27 +479,9 @@ class _PosScreenState extends State<PosScreen> {
         'unit_price': (product['sale_price'] as num).toDouble(),
       });
 
-      // Deduct stock - always deduct
-      int remaining = qty;
-      final stockRecords = await _supabase
-          .from('stock_levels')
-          .select('quantity, location_id')
-          .eq('product_id', product['id'])
-          .order('quantity', ascending: false);
-
-      for (final record in stockRecords) {
-        if (remaining <= 0) break;
-        final recQty = (record['quantity'] as num?)?.toInt() ?? 0;
-        if (recQty <= 0) continue;
-        final locId = record['location_id'];
-        final deduct = remaining > recQty ? recQty : remaining;
-        await _supabase.from('stock_levels')
-             .update({'quantity': recQty - deduct})
-             .eq('product_id', product['id'])
-             .eq('location_id', locId);
-        debugPrint('POS: Deducted $deduct from stock at $locId. $recQty → ${recQty - deduct}');
-        remaining -= deduct;
-      }
+      // Stock deduction is handled automatically by the DB trigger
+      // 'trg_update_stock_on_transaction' which fires on transaction_items INSERT.
+      // No manual deduction needed here.
 
       // Close the purchase sheet
       if (sheetContext.mounted) Navigator.of(sheetContext).pop();
@@ -500,7 +492,7 @@ class _PosScreenState extends State<PosScreen> {
       // Build invoice data
       final now = DateTime.now();
       // Using intl to avoid RTL BiDi mangling of dates and times
-      final dateStr = DateFormat('yyyy/MM/dd HH:mm').format(now);
+      final dateStr = DateFormat('yyyy/MM/dd hh:mm a').format(now);
 
       // Navigate to invoice view
       if (mounted) {
@@ -551,7 +543,7 @@ class _PosScreenState extends State<PosScreen> {
       children: [
         // TopAppBar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16), // px-6 py-4
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 16), // px-6 py-4
             decoration: BoxDecoration(
               color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6), // bg-slate-900/40
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)), // rounded-b-2xl
@@ -596,7 +588,7 @@ class _PosScreenState extends State<PosScreen> {
 
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 120), // px-5 py-6 pb-32
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 180), // px-5 py-6 pb-48
               children: [
                 // Search Bar
                 AnimatedGlassCard(

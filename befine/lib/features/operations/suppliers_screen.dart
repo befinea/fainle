@@ -26,8 +26,9 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     _future = _fetchSuppliers();
   }
 
-  void _refresh() {
+  Future<void> _refresh() async {
     setState(() => _future = _fetchSuppliers());
+    await _future;
   }
 
   Future<List<_SupplierRow>> _fetchSuppliers() async {
@@ -35,7 +36,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
       final companyId = await _repo.getCurrentCompanyIdOrThrow();
       final profiles = await _supabase
           .from('profiles')
-          .select('id, full_name, phone_number, role, created_at')
+          .select('id, full_name, phone_number, role, created_at, store_id')
           .eq('company_id', companyId)
           .eq('role', 'supplier')
           .order('created_at', ascending: false);
@@ -43,27 +44,23 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
       final profileList = List<Map<String, dynamic>>.from(profiles as List);
       if (profileList.isEmpty) return [];
 
-      final ids = profileList.map((e) => e['id']).toList();
-      final locationsRows = await _supabase
-          .from('profile_locations')
-          .select('profile_id, locations(id, name, type)')
-          .inFilter('profile_id', ids);
-
-      final locList = List<Map<String, dynamic>>.from(locationsRows as List);
-      final locByProfile = <String, Map<String, dynamic>>{};
-      for (final r in locList) {
-        final pid = r['profile_id'] as String?;
-        final loc = r['locations'] as Map<String, dynamic>?;
-        if (pid != null && loc != null) locByProfile[pid] = loc;
+      final storeIds = profileList.map((e) => e['store_id'] as String?).where((id) => id != null).toSet().toList();
+      Map<String, String> locationNameMap = {};
+      
+      if (storeIds.isNotEmpty) {
+        final locs = await _supabase.from('locations').select('id, name').inFilter('id', storeIds);
+        for (final loc in locs) {
+          locationNameMap[loc['id'] as String] = loc['name'] as String;
+        }
       }
 
       return profileList.map((p) {
-        final id = p['id'] as String;
+        final storeId = p['store_id'] as String?;
         return _SupplierRow(
-          id: id,
+          id: p['id'] as String,
           fullName: p['full_name'] as String? ?? '',
           phone: p['phone_number'] as String?,
-          locationName: (locByProfile[id]?['name'] as String?) ?? 'غير محدد',
+          locationName: storeId != null ? (locationNameMap[storeId] ?? 'غير محدد') : 'غير محدد',
         );
       }).toList();
     } catch (e) {
@@ -106,7 +103,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               return RefreshIndicator(
                 onRefresh: () async => _refresh(),
                 child: ListView.builder(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 140),
                   itemCount: items.length + 1,
                   itemBuilder: (ctx, index) {
                     if (index == 0) {
@@ -119,8 +116,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                             IconButton(
                               icon: const Icon(Icons.person_add_rounded),
                               onPressed: () async {
-                                final res = await context.push<bool>('/operations/suppliers/create');
-                                if (res == true) _refresh();
+                                await context.push<bool>('/operations/suppliers/create');
+                                _refresh();
                               },
                               style: IconButton.styleFrom(
                                 backgroundColor: theme.colorScheme.surface,
@@ -138,8 +135,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: AnimatedGlassCard(
                         onTap: () async {
-                          final res = await context.push<bool>('/operations/suppliers/${s.id}/edit');
-                          if (res == true) _refresh();
+                          await context.push<bool>('/operations/suppliers/${s.id}/edit');
+                          _refresh();
                         },
                         padding: const EdgeInsets.all(16),
                         child: Row(
@@ -177,15 +174,18 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'add_supplier_fab',
-        onPressed: () async {
-          final res = await context.push<bool>('/operations/suppliers/create');
-          if (res == true) _refresh();
-        },
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('مورد جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 100),
+        child: FloatingActionButton.extended(
+          heroTag: 'add_supplier_fab',
+          onPressed: () async {
+            await context.push<bool>('/operations/suppliers/create');
+            _refresh();
+          },
+          backgroundColor: AppColors.primary,
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text('مورد جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
       ),
     );
   }

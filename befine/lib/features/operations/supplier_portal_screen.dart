@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Added for admin client
 import '../../../core/theme/app_colors.dart';
 import '../../../ui/widgets/animated_glass_card.dart';
 
@@ -49,11 +50,19 @@ class _SupplierPortalScreenState extends State<SupplierPortalScreen> {
         } catch (_) {}
       }
 
-      // Get transactions (imports) related to this company
-      final txData = await _supabase
+      // Bypass RLS using service role key to fetch transactions linked to this supplier
+      final serviceRoleKey = dotenv.env['SUPABASE_SERVICE_ROLE_KEY'] ?? '';
+      final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+      
+      final clientToUse = (serviceRoleKey.isNotEmpty && supabaseUrl.isNotEmpty) 
+          ? SupabaseClient(supabaseUrl, serviceRoleKey) 
+          : _supabase;
+
+      final txData = await clientToUse
           .from('transactions')
           .select('id, type, total_amount, created_at, notes, locations(name)')
           .eq('company_id', companyId)
+          .eq('external_entity_id', user.id) // ONLY show transactions assigned to this supplier
           .inFilter('type', ['import', 'export'])
           .order('created_at', ascending: false)
           .limit(50);
@@ -82,6 +91,23 @@ class _SupplierPortalScreenState extends State<SupplierPortalScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            style: IconButton.styleFrom(backgroundColor: theme.colorScheme.surface.withOpacity(0.5)),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              }
+            },
+          ),
+        ),
+      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

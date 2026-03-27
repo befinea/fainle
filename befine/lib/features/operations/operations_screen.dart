@@ -19,11 +19,16 @@ class OperationsScreen extends ConsumerStatefulWidget {
 
 class _OperationsScreenState extends ConsumerState<OperationsScreen> {
   bool _isSuperAdmin = false;
+  int _refreshKey = 0;
 
   @override
   void initState() {
     super.initState();
     _checkSuperAdmin();
+  }
+
+  void _triggerRefresh() {
+    if (mounted) setState(() => _refreshKey++);
   }
 
   Future<void> _checkSuperAdmin() async {
@@ -62,17 +67,17 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
 
   List<Widget> _getTabViews(bool isSupplier) {
     if (isSupplier) {
-      return const [
-        _TransactionListTab(type: 'import'),
-        _TransactionListTab(type: 'export'),
-        _TransactionListTab(type: 'sale'),
+      return [
+        _TransactionListTab(key: ValueKey('import_$_refreshKey'), type: 'import'),
+        _TransactionListTab(key: ValueKey('export_$_refreshKey'), type: 'export'),
+        _TransactionListTab(key: ValueKey('sale_$_refreshKey'), type: 'sale'),
       ];
     }
     final views = <Widget>[
-      _QuickAddTab(isSuperAdmin: _isSuperAdmin),
-      const _TransactionListTab(type: 'import'),
-      const _TransactionListTab(type: 'export'),
-      const _TransactionListTab(type: 'sale'),
+      _QuickAddTab(isSuperAdmin: _isSuperAdmin, onAdded: _triggerRefresh),
+      _TransactionListTab(key: ValueKey('import_$_refreshKey'), type: 'import'),
+      _TransactionListTab(key: ValueKey('export_$_refreshKey'), type: 'export'),
+      _TransactionListTab(key: ValueKey('sale_$_refreshKey'), type: 'sale'),
     ];
     if (_isSuperAdmin) views.add(_SuppliersTab());
     views.add(const _TasksTab());
@@ -127,7 +132,7 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
       children: [
         // Top appBar matches Mobile stitching
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16), // SafeArea top padding incorporated approx
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
@@ -264,12 +269,13 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
 // ─── Quick Add Tab ───
 class _QuickAddTab extends StatelessWidget {
   final bool isSuperAdmin;
-  const _QuickAddTab({this.isSuperAdmin = false});
+  final VoidCallback onAdded;
+  const _QuickAddTab({this.isSuperAdmin = false, required this.onAdded});
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 180),
       children: [
         const Text('اختصارات الإضافة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
@@ -285,14 +291,20 @@ class _QuickAddTab extends StatelessWidget {
           title: 'وارد جديد',
           subtitle: 'سجّل بضاعة واردة من مورد',
           color: Colors.blue,
-          onTap: () => context.push('/operations/transaction/create?type=import'),
+          onTap: () async {
+            final res = await context.push<bool>('/operations/transaction/create?type=import');
+            if (res == true) onAdded();
+          },
         ),
         _QuickAddCard(
           icon: Icons.upload_rounded,
           title: 'صادر جديد',
           subtitle: 'سجّل بضاعة صادرة لعميل',
           color: Colors.orange,
-          onTap: () => context.push('/operations/transaction/create?type=export'),
+          onTap: () async {
+            final res = await context.push<bool>('/operations/transaction/create?type=export');
+            if (res == true) onAdded();
+          },
         ),
         if (isSuperAdmin)
           _QuickAddCard(
@@ -300,7 +312,10 @@ class _QuickAddTab extends StatelessWidget {
             title: 'مورد جديد',
             subtitle: 'سجّل بيانات مورد جديد',
             color: Colors.teal,
-            onTap: () => context.push('/operations/suppliers/create'),
+            onTap: () async {
+              final res = await context.push<bool>('/operations/suppliers/create');
+              if (res == true) onAdded();
+            },
           ),
       ],
     );
@@ -350,7 +365,7 @@ class _QuickAddCard extends StatelessWidget {
 // ─── Transaction List Tab ───
 class _TransactionListTab extends StatefulWidget {
   final String type;
-  const _TransactionListTab({required this.type});
+  const _TransactionListTab({super.key, required this.type});
 
   @override
   State<_TransactionListTab> createState() => _TransactionListTabState();
@@ -431,7 +446,7 @@ class _TransactionListTabState extends State<_TransactionListTab> {
               return RefreshIndicator(
                 onRefresh: () async => _refresh(),
                 child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
                   itemCount: items.length,
                   itemBuilder: (ctx, i) {
                     final t = items[i];
@@ -737,7 +752,7 @@ class _TasksTabState extends State<_TasksTab> {
               : RefreshIndicator(
                   onRefresh: _loadTasks,
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
                     itemCount: _tasks.length,
                     itemBuilder: (ctx, i) {
                       final task = _tasks[i];
@@ -890,7 +905,7 @@ class _AuditLogTabState extends State<_AuditLogTab> {
     return RefreshIndicator(
       onRefresh: _loadLogs,
       child: ListView.builder(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 180),
         itemCount: _logs.length,
         itemBuilder: (ctx, i) {
           final log = _logs[i];

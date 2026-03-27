@@ -541,7 +541,7 @@ class _EmployeeInvitesScreenState extends State<EmployeeInvitesScreen>
                             ),
                           )
                         : ListView.builder(
-                            padding: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 180),
                             itemCount: _employees.length,
                             itemBuilder: (context, index) {
                               final emp = _employees[index];
@@ -623,7 +623,7 @@ class _EmployeeInvitesScreenState extends State<EmployeeInvitesScreen>
                             ),
                           )
                         : ListView.builder(
-                            padding: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 180),
                             itemCount: _invitations.length,
                             itemBuilder: (context, index) {
                               final inv = _invitations[index];

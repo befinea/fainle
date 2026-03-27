@@ -1,7 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'auth_service.dart';
 
 final customPermissionsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  // Watch auth state so we re-fetch when user logs in/out
+  final authState = ref.watch(authProvider);
+  
+  if (!authState.isAuthenticated || authState.user == null) return {};
+
   final supabase = Supabase.instance.client;
   final user = supabase.auth.currentUser;
   

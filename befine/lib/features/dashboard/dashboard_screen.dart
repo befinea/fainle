@@ -13,6 +13,7 @@ import '../../../ui/widgets/glass_refresh_indicator.dart';
 import '../../../ui/widgets/gradient_border_card.dart';
 import '../../../core/utils/haptic_helper.dart';
 import '../auth/application/auth_service.dart';
+import '../auth/application/permissions_provider.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -283,14 +284,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final userRole = userState.user?.role ?? 'cashier';
     final isSuperAdmin = _companyId == '00000000-0000-0000-0000-000000000001';
 
+    final permsAsync = ref.watch(customPermissionsProvider);
+    final perms = permsAsync.valueOrNull ?? {};
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth > 800;
 
         return Scaffold(
           body: isDesktop
-              ? _buildDesktop(context, isDark, userRole, isSuperAdmin)
-              : _buildMobile(context, isDark, userRole, isSuperAdmin),
+              ? _buildDesktop(context, isDark, userRole, isSuperAdmin, perms)
+              : _buildMobile(context, isDark, userRole, isSuperAdmin, perms),
         );
       },
     );
@@ -333,12 +337,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  Widget _buildMobile(BuildContext context, bool isDark, String userRole, bool isSuperAdmin) {
+  Widget _buildMobile(BuildContext context, bool isDark, String userRole, bool isSuperAdmin, Map<String, dynamic> perms) {
     return Column(
       children: [
         // TopAppBar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
           decoration: BoxDecoration(
               color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
@@ -379,7 +383,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 _staggerController.forward();
               },
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 180),
                 children: [
                   // Stagger 0: Greeting
                   FadeTransition(
@@ -448,7 +452,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             mainAxisSpacing: 16,
                             crossAxisSpacing: 12,
                             childAspectRatio: 0.85,
-                            children: _buildQuickActions(userRole, isSuperAdmin),
+                            children: _buildQuickActions(userRole, isSuperAdmin, perms),
                           ),
                         ],
                       ),
@@ -467,7 +471,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       );
   }
 
-  Widget _buildDesktop(BuildContext context, bool isDark, String userRole, bool isSuperAdmin) {
+  Widget _buildDesktop(BuildContext context, bool isDark, String userRole, bool isSuperAdmin, Map<String, dynamic> perms) {
     return Column(
       children: [
         // Desktop Top Bar
@@ -541,7 +545,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           mainAxisSpacing: 16,
                           crossAxisSpacing: 16,
                           childAspectRatio: 1.0,
-                          children: _buildQuickActions(userRole, isSuperAdmin),
+                          children: _buildQuickActions(userRole, isSuperAdmin, perms),
                         ),
                       ],
                     ),
@@ -592,19 +596,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  List<Widget> _buildQuickActions(String userRole, bool isSuperAdmin) {
+  List<Widget> _buildQuickActions(String userRole, bool isSuperAdmin, Map<String, dynamic> perms) {
+    final pos = perms['pos'] ?? (userRole == 'cashier' || userRole == 'supplier');
+    final ops = perms['operations'] ?? (userRole == 'supplier');
+    final bar = perms['barcode'] ?? (userRole == 'cashier' || userRole == 'warehouse_worker');
+    final rep = perms['reports'] ?? false;
+    final isTopExec = (userRole == 'super_admin' || userRole == 'admin' || userRole == 'owner');
+
     return [
-      if (userRole != 'supplier' && isSuperAdmin)
+      if (isTopExec)
         _QuickAction(icon: Icons.add_box_rounded, label: 'مورد', color: AppColors.primary, onTap: () => context.push('/operations/suppliers/create')),
-      _QuickAction(icon: Icons.point_of_sale, label: 'بيع', color: AppColors.success, onTap: () => context.go('/pos')),
-      _QuickAction(icon: Icons.download_rounded, label: 'وارد', color: Colors.blue, onTap: () => context.push('/operations/transaction/create?type=import')),
-      _QuickAction(icon: Icons.upload_rounded, label: 'صادر', color: Colors.orange, onTap: () => context.push('/operations/transaction/create?type=export')),
-      if (userRole != 'supplier')
+      if (isTopExec || pos)
+        _QuickAction(icon: Icons.point_of_sale, label: 'بيع', color: AppColors.success, onTap: () => context.go('/pos')),
+      if (isTopExec || ops) ...[
+        _QuickAction(icon: Icons.download_rounded, label: 'وارد', color: Colors.blue, onTap: () => context.push('/operations/transaction/create?type=import')),
+        _QuickAction(icon: Icons.upload_rounded, label: 'صادر', color: Colors.orange, onTap: () => context.push('/operations/transaction/create?type=export')),
+      ],
+      if ((isTopExec || ops) && userRole != 'supplier')
         _QuickAction(icon: Icons.swap_horiz, label: 'نقل', color: Colors.purple, onTap: () => context.push('/operations/transaction/create?type=transfer')),
-      if (userRole != 'supplier' && isSuperAdmin)
+      if (isTopExec)
         _QuickAction(icon: Icons.people_alt, label: 'موردون', color: Colors.teal, onTap: () => context.go('/operations?tab=suppliers')),
-      _QuickAction(icon: Icons.print_rounded, label: 'باركود', color: Colors.indigo, onTap: () => context.push('/barcode-print')),
-      _QuickAction(icon: Icons.analytics_rounded, label: 'تقارير', color: Colors.brown, onTap: () => context.go('/reports')),
+      if (isTopExec || bar)
+        _QuickAction(icon: Icons.print_rounded, label: 'باركود', color: Colors.indigo, onTap: () => context.push('/barcode-print')),
+      if (isTopExec || rep)
+        _QuickAction(icon: Icons.analytics_rounded, label: 'تقارير', color: Colors.brown, onTap: () => context.go('/reports')),
     ];
   }
 

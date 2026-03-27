@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../ui/widgets/animated_glass_card.dart';
+import '../../../ui/widgets/glass_toast.dart';
+import '../../../ui/widgets/location_dialogs.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/application/auth_service.dart';
 
@@ -70,6 +72,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 
   Future<void> _fetchWarehouses() async {
+    if (mounted) setState(() => _isLoading = true);
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) return;
@@ -112,7 +115,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       };
       if (maxStores != null) insertData['max_stores'] = maxStores;
       await _supabase.from('locations').insert(insertData);
-      _fetchWarehouses();
+      await _fetchWarehouses();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -126,47 +129,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 
   void _showAddDialog() {
-    final nameCtrl = TextEditingController();
-    final addressCtrl = TextEditingController();
-    final maxStoresCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('إضافة مخزن جديد'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'اسم المخزن')),
-              const SizedBox(height: 12),
-              TextField(controller: addressCtrl, decoration: const InputDecoration(labelText: 'العنوان')),
-              const SizedBox(height: 12),
-              TextField(
-                controller: maxStoresCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'الحد الأقصى للمتاجر (اختياري)',
-                  hintText: 'اتركه فارغاً لعدد غير محدود',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.trim().isNotEmpty) {
-                final maxStores = int.tryParse(maxStoresCtrl.text.trim());
-                _addWarehouse(nameCtrl.text.trim(), addressCtrl.text.trim(), maxStores);
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('إضافة'),
-          ),
-        ],
-      ),
+    showAddLocationDialog(
+      context,
+      onSubmit: (name, address, maxStores) {
+        _addWarehouse(name, address, maxStores);
+      },
     );
   }
 
@@ -236,141 +203,64 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 
   void _showEditWarehouseDialog(Map<String, dynamic> warehouse) {
-    final nameCtrl = TextEditingController(text: warehouse['name'] as String? ?? '');
-    final addressCtrl = TextEditingController(text: warehouse['address'] as String? ?? '');
-    final maxStoresCtrl = TextEditingController(text: warehouse['max_stores']?.toString() ?? '');
-    
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: AnimatedGlassCard(
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.edit_note_rounded, size: 48, color: AppColors.primary),
-                const SizedBox(height: 16),
-                const Text('تعديل تفاصيل المخزن', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'اسم المخزن', prefixIcon: const Icon(Icons.warehouse_rounded),
-                    filled: true, fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: addressCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'العنوان', prefixIcon: const Icon(Icons.location_on_rounded),
-                    filled: true, fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: maxStoresCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'الحد الأقصى للمتاجر (اختياري)',
-                    hintText: 'لعدد غير محدود اتركه فارغاً',
-                    prefixIcon: const Icon(Icons.numbers_rounded),
-                    filled: true, fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.delete_rounded, color: Colors.redAccent),
-                      style: IconButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1)),
-                      onPressed: () async {
-                        final confirm = await showDialog<bool>(
-                          context: ctx,
-                          builder: (c) => AlertDialog(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            title: const Text('تأكيد الحذف'),
-                            content: const Text('هل أنت متأكد من حذف المخزن؟ جميع المتاجر والمنتجات المرتبطة به قد تتأثر.'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-                                onPressed: () => Navigator.pop(c, true),
-                                child: const Text('حذف'),
-                              ),
-                            ]
-                          )
-                        );
-                        if (confirm == true) {
-                          Navigator.pop(ctx);
-                          _deleteWarehouse(warehouse['id'] as String);
-                        }
-                      },
-                    ),
-                    Row(
-                      children: [
-                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          ),
-                          onPressed: () {
-                            if (nameCtrl.text.trim().isNotEmpty) {
-                              final maxStores = int.tryParse(maxStoresCtrl.text.trim());
-                              _updateWarehouse(warehouse['id'] as String, nameCtrl.text.trim(), addressCtrl.text.trim(), maxStores);
-                              Navigator.pop(ctx);
-                            }
-                          },
-                          child: const Text('حفظ التعديلات'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    showEditLocationDialog(
+      context,
+      location: warehouse,
+      onSave: (name, address, maxStores) {
+        _updateWarehouse(warehouse['id'] as String, name, address, maxStores);
+      },
+      onDelete: () {
+        _deleteWarehouse(warehouse['id'] as String);
+      },
     );
   }
 
   Future<void> _updateWarehouse(String id, String name, String address, int? maxStores) async {
     try {
-      final updateData = {'name': name, 'address': address};
-      if (maxStores != null) updateData['max_stores'] = maxStores.toString();
-      else updateData['max_stores'] = null.toString(); // Supabase expects null if actually null
-
-      await _supabase.from('locations').update({
-        'name': name,
-        'address': address,
-        'max_stores': maxStores,
-      }).eq('id', id);
-      
-      _fetchWarehouses();
+      final updateData = <String, dynamic>{'name': name, 'address': address};
+      if (maxStores != null) updateData['max_stores'] = maxStores;
+      await _supabase.from('locations').update(updateData).eq('id', id);
+      if (mounted) GlassToast.show(context, 'تم تحديث المخزن بنجاح', type: ToastType.success);
+      await _fetchWarehouses();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: AppColors.error));
+      if (mounted) {
+        GlassToast.show(context, 'خطأ في التحديث: $e', type: ToastType.error);
+      }
     }
   }
 
   Future<void> _deleteWarehouse(String id) async {
+    // Show confirmation before deleting
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        title: const Text('تأكيد الحذف'),
+        content: const Text('هل أنت متأكد من حذف هذا المخزن؟ لا يمكن التراجع.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     try {
       await _supabase.from('locations').delete().eq('id', id);
-      _fetchWarehouses();
+      if (mounted) GlassToast.show(context, 'تم حذف المخزن', type: ToastType.info);
+      await _fetchWarehouses();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في الحذف: $e'), backgroundColor: AppColors.error));
+      if (mounted) {
+        GlassToast.show(context, 'لا يمكن مسح المخزن (قد يحتوي على أصناف)', type: ToastType.error);
+      }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -394,7 +284,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
   Widget _buildMobileFab() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 24),
+      margin: const EdgeInsets.only(bottom: 100),
       decoration: BoxDecoration(
         color: AppColors.primary, // bg-primary
         borderRadius: BorderRadius.circular(999), // rounded-full
@@ -428,7 +318,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       children: [
         // TopAppBar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
@@ -476,7 +366,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             child: RefreshIndicator(
               onRefresh: _fetchWarehouses,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 180),
                 children: [
                   // Search Bar
                   AnimatedGlassCard(

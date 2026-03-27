@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../ui/widgets/animated_glass_card.dart';
@@ -52,7 +53,7 @@ class _EmployeePermissionsScreenState extends State<EmployeePermissionsScreen> {
       // Select only columns that definitely exist
       final data = await _supabase
           .from('profiles')
-          .select('id, full_name, role')
+          .select('id, full_name, role, custom_permissions')
           .eq('company_id', companyId)
           .neq('id', user.id);
 
@@ -79,9 +80,15 @@ class _EmployeePermissionsScreenState extends State<EmployeePermissionsScreen> {
   }
 
   void _selectEmployee(Map<String, dynamic> emp) {
+    final saved = emp['custom_permissions'] as Map<String, dynamic>?;
     final perms = <String, bool>{};
     for (final p in _allPermissions) {
-      perms[p['key']!] = _defaultPermForRole(emp['role'] as String? ?? 'cashier', p['key']!);
+      final key = p['key']!;
+      if (saved != null && saved.containsKey(key)) {
+        perms[key] = saved[key] == true;
+      } else {
+        perms[key] = _defaultPermForRole(emp['role'] as String? ?? 'cashier', key);
+      }
     }
     setState(() {
       _selectedEmployee = emp;
@@ -115,11 +122,35 @@ class _EmployeePermissionsScreenState extends State<EmployeePermissionsScreen> {
     if (_selectedEmployee == null) return;
 
     try {
-      // Try to save permissions; the column may not exist
-      await _supabase
-          .from('profiles')
-          .update({'custom_permissions': _permissions})
-          .eq('id', _selectedEmployee!['id']);
+      final serviceRoleKey = dotenv.env['SUPABASE_SERVICE_ROLE_KEY'] ?? '';
+      final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+
+      if (serviceRoleKey.isEmpty || supabaseUrl.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('خطأ: تأكد من ضبط مفتاح الخدمة ورابط Supabase في ملف .env'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      final adminClient = SupabaseClient(supabaseUrl, serviceRoleKey);
+      try {
+        await adminClient
+            .from('profiles')
+            .update({'custom_permissions': _permissions})
+            .eq('id', _selectedEmployee!['id']);
+      } finally {
+        adminClient.dispose();
+      }
+
+      final index = _employees.indexWhere((e) => e['id'] == _selectedEmployee!['id']);
+      if (index != -1) {
+        _employees[index]['custom_permissions'] = Map<String, dynamic>.from(_permissions);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,8 +162,8 @@ class _EmployeePermissionsScreenState extends State<EmployeePermissionsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('ملاحظة: يجب إضافة عمود custom_permissions لجدول profiles في Supabase'),
-            backgroundColor: Colors.orange,
+            content: Text('خطأ في حفظ الصلاحيات: $e'),
+            backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),
         );
@@ -238,7 +269,7 @@ class _EmployeePermissionsScreenState extends State<EmployeePermissionsScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 140),
       itemCount: _employees.length,
       itemBuilder: (ctx, i) {
         final emp = _employees[i];
@@ -289,7 +320,7 @@ class _EmployeePermissionsScreenState extends State<EmployeePermissionsScreen> {
 
   Widget _buildPermissionsView(ThemeData theme) {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 140),
       children: [
         // Info card
         AnimatedGlassCard(

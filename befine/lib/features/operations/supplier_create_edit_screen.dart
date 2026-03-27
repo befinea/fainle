@@ -108,6 +108,13 @@ class _SupplierCreateEditScreenState extends State<SupplierCreateEditScreen> {
           'phone_number': _phoneCtrl.text.trim(),
           'store_id': _selectedWarehouseId,
         }).eq('id', id);
+
+        // Keep external_entities in sync
+        try {
+          await _supabase.from('external_entities').update({
+            'name': _nameCtrl.text.trim(),
+          }).eq('id', id);
+        } catch (_) {}
       } else {
         final serviceRoleKey = dotenv.env['SUPABASE_SERVICE_ROLE_KEY'] ?? '';
         final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
@@ -137,6 +144,14 @@ class _SupplierCreateEditScreenState extends State<SupplierCreateEditScreen> {
           'store_id': _selectedWarehouseId,
         });
 
+        // Insert mirror record in external_entities to satisfy FK constraints for transactions
+        await adminClient.from('external_entities').upsert({
+          'id': newUserId,
+          'company_id': companyId,
+          'name': _nameCtrl.text.trim(),
+          'type': 'supplier',
+        });
+
         adminClient.dispose();
       }
 
@@ -161,6 +176,7 @@ class _SupplierCreateEditScreenState extends State<SupplierCreateEditScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.background,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -176,51 +192,115 @@ class _SupplierCreateEditScreenState extends State<SupplierCreateEditScreen> {
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    _buildAppBar(context, title),
-                    const SizedBox(height: 10),
-                    AnimatedGlassCard(
-                      padding: const EdgeInsets.all(24),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('المعلومات الأساسية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(height: 20),
-                            _buildTextField(controller: _nameCtrl, label: 'اسم المورد الكامل', icon: Icons.person_outline, validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null),
-                            const SizedBox(height: 16),
-                            _buildTextField(controller: _phoneCtrl, label: 'رقم الهاتف', icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
-                            const SizedBox(height: 24),
-                            const Text('تخصيص الموقع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(height: 16),
-                            _buildDropdown(),
-                            if (!_isEdit) ...[
-                              const SizedBox(height: 24),
-                              const Text('بيانات الوصول', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              const SizedBox(height: 16),
-                              _buildTextField(controller: _emailCtrl, label: 'البريد الإلكتروني', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, validator: (v) => (v == null || !v.contains('@')) ? 'بريد غير صالح' : null),
-                              const SizedBox(height: 16),
-                              _buildTextField(controller: _passwordCtrl, label: 'كلمة المرور', icon: Icons.lock_outline, obscureText: true, validator: (v) => (v == null || v.length < 6) ? 'ضعيفة' : null),
-                            ],
-                            const SizedBox(height: 32),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 56,
-                              child: ElevatedButton.icon(
-                                onPressed: _saving ? null : _save,
-                                icon: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded),
-                                label: Text(_saving ? 'جارٍ الحفظ...' : 'حفظ بيانات المورد', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                              ),
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isDesktop = constraints.maxWidth > 800;
+
+                    final contentBlock = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!isDesktop) _buildAppBar(context, title),
+                        if (!isDesktop) const SizedBox(height: 10),
+                        AnimatedGlassCard(
+                          padding: EdgeInsets.all(isDesktop ? 24 : 16),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (isDesktop) ...[
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                                        onPressed: () => Navigator.pop(context),
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: Colors.white.withOpacity(0.05),
+                                          padding: const EdgeInsets.all(12),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 20),
+                                ],
+                                const Text('المعلومات الأساسية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                const SizedBox(height: 12),
+                                _buildTextField(controller: _nameCtrl, label: 'اسم المورد الكامل', icon: Icons.person_outline, validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null),
+                                const SizedBox(height: 12),
+                                _buildTextField(controller: _phoneCtrl, label: 'رقم الهاتف', icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
+                                const SizedBox(height: 20),
+                                const Text('تخصيص الموقع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                const SizedBox(height: 12),
+                                _buildDropdown(),
+                                if (!_isEdit) ...[
+                                  const SizedBox(height: 20),
+                                  const Text('بيانات الوصول', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  const SizedBox(height: 12),
+                                  _buildTextField(controller: _emailCtrl, label: 'البريد الإلكتروني', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress, validator: (v) => (v == null || !v.contains('@')) ? 'بريد غير صالح' : null),
+                                  const SizedBox(height: 12),
+                                  _buildTextField(controller: _passwordCtrl, label: 'كلمة المرور', icon: Icons.lock_outline, obscureText: true, validator: (v) => (v == null || v.length < 6) ? 'ضعيفة' : null),
+                                ],
+                                const SizedBox(height: 24),
+                                Row(
+                                  children: [
+                                    if (isDesktop) ...[
+                                      Expanded(
+                                        child: SizedBox(
+                                          height: 56,
+                                          child: TextButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            child: const Text('إلغاء', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                    ],
+                                    Expanded(
+                                      flex: 2,
+                                      child: SizedBox(
+                                        height: 56,
+                                        child: ElevatedButton.icon(
+                                          onPressed: _saving ? null : _save,
+                                          icon: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_rounded),
+                                          label: Text(_saving ? 'جارٍ الحفظ...' : 'حفظ بيانات المورد', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.primary,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                            elevation: 8,
+                                            shadowColor: AppColors.primary.withOpacity(0.4),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+
+                    if (isDesktop) {
+                      return Center(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 680),
+                            child: contentBlock,
+                          ),
+                        ),
+                      );
+                    } else {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 140),
+                        child: contentBlock,
+                      );
+                    }
+                  },
                 ),
         ),
       ),
@@ -232,7 +312,14 @@ class _SupplierCreateEditScreenState extends State<SupplierCreateEditScreen> {
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Row(
         children: [
-          IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context), style: IconButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.all(12))),
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.pop(context),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.05),
+              padding: const EdgeInsets.all(12),
+            ),
+          ),
           const SizedBox(width: 16),
           Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         ],
@@ -246,28 +333,41 @@ class _SupplierCreateEditScreenState extends State<SupplierCreateEditScreen> {
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
+      style: const TextStyle(fontSize: 16),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: AppColors.primary.withOpacity(0.7)),
+        labelStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
+        prefixIcon: Icon(icon, color: AppColors.primary.withOpacity(0.8)),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        fillColor: Colors.black.withOpacity(0.2),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       ),
     );
   }
 
   Widget _buildDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<String>(
-          value: _selectedWarehouseId,
-          decoration: const InputDecoration(border: InputBorder.none, labelText: 'المخزن المرتبط'),
-          items: _warehouses.map((w) => DropdownMenuItem(value: w['id'] as String, child: Text(w['name'] as String? ?? ''))).toList(),
-          onChanged: (v) => setState(() => _selectedWarehouseId = v),
-        ),
+    final theme = Theme.of(context);
+    return DropdownButtonFormField<String>(
+      value: _selectedWarehouseId,
+      isExpanded: true,
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+      dropdownColor: theme.colorScheme.background,
+      style: const TextStyle(fontSize: 16, color: Colors.white),
+      decoration: InputDecoration(
+        labelText: 'المخزن المرتبط',
+        labelStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
+        prefixIcon: Icon(Icons.warehouse_outlined, color: AppColors.primary.withOpacity(0.8)),
+        filled: true,
+        fillColor: Colors.black.withOpacity(0.2),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       ),
+      items: _warehouses.map((w) => DropdownMenuItem(value: w['id'] as String, child: Text(w['name'] as String? ?? ''))).toList(),
+      onChanged: (v) => setState(() => _selectedWarehouseId = v),
     );
   }
 }

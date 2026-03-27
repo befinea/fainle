@@ -202,7 +202,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),

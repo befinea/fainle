@@ -46,14 +46,21 @@ class MainShell extends ConsumerWidget {
       );
     }
 
+    final dash = perms['dashboard'] ?? true;
     final pos = perms['pos'] ?? (role == 'cashier' || role == 'supplier');
     final inv = perms['inventory'] ?? (role == 'warehouse_worker' || role == 'supplier');
+    final stores = perms['stores'] ?? false;
     final ops = perms['operations'] ?? (role == 'supplier');
     final rep = perms['reports'] ?? false;
+    final settings = perms['settings'] ?? false;
 
-    final items = <_NavItem>[const _NavItem(icon: Icons.dashboard_rounded, label: 'الرئيسية')];
-    final routes = <String>['/dashboard'];
+    final items = <_NavItem>[];
+    final routes = <String>[];
 
+    if (dash == true) {
+      items.add(const _NavItem(icon: Icons.dashboard_rounded, label: 'الرئيسية'));
+      routes.add('/dashboard');
+    }
     if (pos == true) {
       items.add(const _NavItem(icon: Icons.point_of_sale_rounded, label: 'المبيعات'));
       routes.add('/pos');
@@ -62,6 +69,10 @@ class MainShell extends ConsumerWidget {
       items.add(const _NavItem(icon: Icons.inventory_2_rounded, label: 'المخزون'));
       routes.add('/inventory');
     }
+    if (stores == true) {
+      items.add(const _NavItem(icon: Icons.store_rounded, label: 'المتاجر'));
+      routes.add('/stores');
+    }
     if (ops == true) {
       items.add(const _NavItem(icon: Icons.swap_horiz_rounded, label: 'العمليات'));
       routes.add('/operations');
@@ -69,6 +80,16 @@ class MainShell extends ConsumerWidget {
     if (rep == true) {
       items.add(const _NavItem(icon: Icons.analytics_rounded, label: 'التقارير'));
       routes.add('/reports');
+    }
+    if (settings == true) {
+      items.add(const _NavItem(icon: Icons.settings_rounded, label: 'الإعدادات'));
+      routes.add('/settings');
+    }
+
+    // Fallback: ensure at least one tab
+    if (items.isEmpty) {
+      items.add(const _NavItem(icon: Icons.dashboard_rounded, label: 'الرئيسية'));
+      routes.add('/dashboard');
     }
 
     return (items, routes);
@@ -90,7 +111,26 @@ class MainShell extends ConsumerWidget {
 
   Widget _buildScaffold(BuildContext context, String location, String role, Map<String, dynamic> perms, WidgetRef ref) {
     final (navItems, routes) = _getTabs(role, perms);
-    final currentIndex = _calcIndex(location, routes).clamp(0, navItems.isNotEmpty ? navItems.length - 1 : 0);
+    final index = _calcIndex(location, routes);
+    
+    // Guard: Prevent access to disabled main tabs
+    final allBottomNavPaths = ['/dashboard', '/pos', '/inventory', '/stores', '/operations', '/reports', '/settings'];
+    final isBottomNavPath = allBottomNavPaths.any((p) => location.startsWith(p));
+    bool isAllowed = routes.any((r) => location.startsWith(r));
+
+    // Exception: Admins, Owners, and Super Admins have full access to settings
+    if (location.startsWith('/settings') && (role == 'admin' || role == 'owner' || role == 'super_admin')) {
+      isAllowed = true;
+    }
+
+    if (isBottomNavPath && !isAllowed && routes.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) context.go(routes.first);
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final currentIndex = index.clamp(0, navItems.isNotEmpty ? navItems.length - 1 : 0);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -117,36 +157,9 @@ class MainShell extends ConsumerWidget {
               ),
             ],
           ),
-          floatingActionButton: isDesktop ? null : Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton(
-                heroTag: 'ai_fab',
-                onPressed: () {
-                  HapticHelper.mediumTap();
-                  context.push('/ai-assistant');
-                },
-                backgroundColor: AppColors.tertiary,
-                elevation: 0,
-                mini: true,
-                child: const Icon(Icons.auto_awesome_rounded, size: 22, color: Colors.white),
-              ),
-              const SizedBox(height: 8),
-              FloatingActionButton(
-                heroTag: 'barcode_fab',
-                onPressed: () {
-                  HapticHelper.mediumTap();
-                  context.push('/scanner');
-                },
-                backgroundColor: AppColors.primary,
-                elevation: 0,
-                mini: true,
-                child: const Icon(Icons.qr_code_scanner_rounded, size: 22, color: Colors.white),
-              ),
-            ],
-          ),
+          floatingActionButton: isDesktop ? null : _buildFabs(context, role, perms),
           // Float slightly above bottom nav
-          floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
           bottomNavigationBar: isDesktop ? null : Padding(
             padding: EdgeInsets.zero,
             child: _MobileBottomNav(
@@ -161,6 +174,53 @@ class MainShell extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget? _buildFabs(BuildContext context, String role, Map<String, dynamic> perms) {
+    bool hasAi = false;
+    bool hasBarcode = false;
+
+    if (role == 'super_admin' || role == 'admin' || role == 'owner') {
+      hasAi = true;
+      hasBarcode = true;
+    } else {
+      hasAi = perms['ai_assistant'] ?? false;
+      hasBarcode = perms['barcode'] ?? (role == 'cashier' || role == 'warehouse_worker');
+    }
+
+    if (!hasAi && !hasBarcode) return null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (hasAi) ...[
+          FloatingActionButton(
+            heroTag: 'ai_fab',
+            onPressed: () {
+              HapticHelper.mediumTap();
+              context.push('/ai-assistant');
+            },
+            backgroundColor: AppColors.tertiary,
+            elevation: 0,
+            mini: true,
+            child: const Icon(Icons.auto_awesome_rounded, size: 22, color: Colors.white),
+          ),
+          if (hasBarcode) const SizedBox(height: 8),
+        ],
+        if (hasBarcode)
+          FloatingActionButton(
+            heroTag: 'barcode_fab',
+            onPressed: () {
+              HapticHelper.mediumTap();
+              context.push('/scanner');
+            },
+            backgroundColor: AppColors.primary,
+            elevation: 0,
+            mini: true,
+            child: const Icon(Icons.qr_code_scanner_rounded, size: 22, color: Colors.white),
+          ),
+      ],
     );
   }
 }
@@ -307,8 +367,8 @@ class _DesktopSidebar extends StatelessWidget {
   }
 }
 
-// ─── Mobile Floating Bottom Nav (Exact Stitch Design) ───
-class _MobileBottomNav extends StatelessWidget {
+// ─── Mobile Floating Bottom Nav (Premium Animated) ───
+class _MobileBottomNav extends StatefulWidget {
   final List<_NavItem> items;
   final int currentIndex;
   final bool isDark;
@@ -322,17 +382,92 @@ class _MobileBottomNav extends StatelessWidget {
   });
 
   @override
+  State<_MobileBottomNav> createState() => _MobileBottomNavState();
+}
+
+class _MobileBottomNavState extends State<_MobileBottomNav> with TickerProviderStateMixin {
+  late List<AnimationController> _controllers;
+  late List<Animation<double>> _scaleAnimations;
+  late List<Animation<Offset>> _slideAnimations;
+
+  @override
+  void initState() {
+    super.initState();
+    _initControllers();
+    // Start active icon animation immediately
+    if (widget.currentIndex < _controllers.length) {
+      _controllers[widget.currentIndex].forward();
+    }
+  }
+
+  void _initControllers() {
+    _controllers = List.generate(widget.items.length, (i) {
+      return AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 400),
+      );
+    });
+
+    _scaleAnimations = _controllers.map((c) {
+      return Tween<double>(begin: 1.0, end: 1.05).animate( // Subtle scale
+        CurvedAnimation(parent: c, curve: Curves.easeOutCubic),
+      );
+    }).toList();
+
+    _slideAnimations = _controllers.map((c) {
+      return Tween<Offset>(begin: Offset.zero, end: const Offset(0, -0.22)).animate(
+        CurvedAnimation(parent: c, curve: Curves.easeOutBack),
+      );
+    }).toList();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MobileBottomNav oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Handle item count changes
+    if (oldWidget.items.length != widget.items.length) {
+      for (final c in _controllers) {
+        c.dispose();
+      }
+      _initControllers();
+      if (widget.currentIndex < _controllers.length) {
+        _controllers[widget.currentIndex].forward();
+      }
+      return;
+    }
+
+    // Animate transition between tabs
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      if (oldWidget.currentIndex < _controllers.length) {
+        _controllers[oldWidget.currentIndex].reverse();
+      }
+      if (widget.currentIndex < _controllers.length) {
+        _controllers[widget.currentIndex].forward();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), // Float above screen
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xff020617).withOpacity(0.7) : Colors.white.withOpacity(0.85),
-          borderRadius: BorderRadius.circular(40), // Bubble shape
+          color: widget.isDark ? const Color(0xff020617).withOpacity(0.7) : Colors.white.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(40),
           border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withOpacity(isDark ? 0.3 : 0.1),
+              color: AppColors.primary.withOpacity(widget.isDark ? 0.3 : 0.1),
               blurRadius: 30,
               offset: const Offset(0, 10),
             ),
@@ -343,48 +478,77 @@ class _MobileBottomNav extends StatelessWidget {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 14.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(items.length, (index) {
-                  final isActive = index == currentIndex;
-                  final icon = items[index].icon;
-                  if (isActive) {
-                    return GestureDetector(
-                      onTap: () => onTap(index),
-                      child: TweenAnimationBuilder<double>(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOutBack, // Gives a nice bounce
-                        tween: Tween(begin: 0.0, end: -10.0), // Protrude upwards
-                        builder: (context, val, child) {
-                          return Transform.translate(
-                            offset: Offset(0, val),
-                            child: child,
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
+                children: List.generate(widget.items.length, (index) {
+                  final isActive = index == widget.currentIndex;
+                  final icon = widget.items[index].icon;
+                  final label = widget.items[index].label;
+
+                  return GestureDetector(
+                    onTap: () => widget.onTap(index),
+                    behavior: HitTestBehavior.opaque,
+                    child: SlideTransition(
+                      position: _slideAnimations[index],
+                      child: ScaleTransition(
+                        scale: _scaleAnimations[index],
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeOutCubic,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isActive ? 14 : 10,
+                            vertical: isActive ? 6 : 10,
+                          ),
                           decoration: BoxDecoration(
-                            color: AppColors.primary, // Solid color for the popped bubble
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(color: AppColors.primary.withOpacity(0.5), blurRadius: 15, offset: const Offset(0, 8)),
+                            color: isActive ? AppColors.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: isActive
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primary.withOpacity(0.3),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ]
+                                : [],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                icon,
+                                color: isActive
+                                    ? Colors.white
+                                    : (widget.isDark ? Colors.white54 : const Color(0xFF64748B)),
+                                size: isActive ? 24 : 26,
+                              ),
+                              // Animated label for active icon
+                              AnimatedCrossFade(
+                                firstChild: Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                secondChild: const SizedBox.shrink(),
+                                crossFadeState: isActive
+                                    ? CrossFadeState.showFirst
+                                    : CrossFadeState.showSecond,
+                                duration: const Duration(milliseconds: 250),
+                                sizeCurve: Curves.easeOutCubic,
+                              ),
                             ],
                           ),
-                          child: Icon(icon, color: Colors.white, size: 24),
                         ),
                       ),
-                    );
-                  } else {
-                    return GestureDetector(
-                      onTap: () => onTap(index),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        color: Colors.transparent,
-                        child: Icon(icon, color: isDark ? Colors.white54 : const Color(0xFF64748B), size: 26),
-                      ),
-                    );
-                  }
+                    ),
+                  );
                 }),
               ),
             ),

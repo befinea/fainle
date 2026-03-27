@@ -84,8 +84,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       final storeName = (sale['locations'] is Map) ? (sale['locations'] as Map)['name'] ?? '-' : '-';
       final sellerName = (sale['profiles'] is Map) ? (sale['profiles'] as Map)['full_name'] ?? '-' : '-';
       final customerName = sale['customer_name'] ?? '-';
-      final date = DateTime.tryParse(sale['created_at'] ?? '') ?? DateTime.now();
-      final dateStr = DateFormat('yyyy/MM/dd HH:mm').format(date);
+      final date = DateTime.tryParse(sale['created_at'] ?? '')?.toLocal() ?? DateTime.now();
+      final dateStr = DateFormat('yyyy/MM/dd hh:mm a').format(date);
 
       // Build product info string
       String productName = '-';
@@ -151,7 +151,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               : RefreshIndicator(
                   onRefresh: _fetchSales,
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                     itemCount: _sales.length,
                     itemBuilder: (ctx, i) {
                       final sale = _sales[i];
@@ -185,7 +185,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      DateFormat('yyyy/MM/dd HH:mm').format(date),
+                                      DateFormat('yyyy/MM/dd hh:mm a').format(date.toLocal()),
                                       style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                                     ),
                                   ],

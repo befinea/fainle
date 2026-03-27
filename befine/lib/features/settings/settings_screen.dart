@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../ui/widgets/animated_glass_card.dart';
 import '../auth/application/auth_service.dart';
+import '../auth/application/permissions_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -234,8 +235,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       const SizedBox(height: 12),
 
-      // Categories
-      if (!isSupplier) ...[
+      // Categories - show for admins always, or for any user if categories permission is enabled
+      if (isAdmin || (ref.watch(customPermissionsProvider).valueOrNull?['categories'] == true)) ...[
         _SettingsTile(icon: Icons.category_rounded, color: Colors.teal, title: 'إدارة الأصناف', subtitle: 'إضافة وتعديل أصناف المنتجات', onTap: () => context.push('/settings/categories')),
         const SizedBox(height: 12),
       ],
@@ -288,7 +289,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         // Glass Top Bar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),

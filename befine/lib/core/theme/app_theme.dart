@@ -37,17 +37,18 @@ class AppTheme {
         centerTitle: true,
       ),
       cardTheme: CardThemeData(
-        color: AppColors.surfaceLight,
-        elevation: 0,
-        shadowColor: Colors.transparent,
+        color: const Color(0xFFF0F4FA), // Tinted surface, not pure white
+        elevation: 2,
+        shadowColor: const Color(0xFF94A3B8).withOpacity(0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
         ),
         margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.backgroundLight,
+        fillColor: const Color(0xFFEDF2F7), // Visible tinted fill
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         hintStyle: GoogleFonts.inter(
           color: AppColors.textSecondaryLight.withOpacity(0.5),
@@ -55,11 +56,11 @@ class AppTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -74,8 +75,8 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          elevation: 0,
-          shadowColor: Colors.transparent,
+          elevation: 3,
+          shadowColor: AppColors.primary.withOpacity(0.35),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),

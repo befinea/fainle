@@ -56,7 +56,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 64, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xff0f172a).withOpacity(0.4) : Colors.white.withOpacity(0.6),
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
@@ -285,7 +285,7 @@ class _SalesReportState extends State<_SalesReport> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 140),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -484,7 +484,7 @@ class _StockReportState extends State<_StockReport> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 180),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -645,7 +645,7 @@ class _ProfitReportState extends State<_ProfitReport> {
     final profitPct = _totalRevenue > 0 ? _totalProfit / _totalRevenue : 0.0;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 180),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

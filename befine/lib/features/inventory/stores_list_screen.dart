@@ -17,6 +17,8 @@ class _StoresListScreenState extends State<StoresListScreen> {
   bool _loading = true;
   String? _companyId;
   int _maxStores = 1;
+  String _userRole = '';
+  String? _userStoreId;
 
   @override
   void initState() {
@@ -25,14 +27,19 @@ class _StoresListScreenState extends State<StoresListScreen> {
   }
 
   Future<void> _loadStores() async {
+    if (mounted) setState(() => _loading = true);
     try {
       final user = _supabase.auth.currentUser!;
       final profile = await _supabase
           .from('profiles')
-          .select('company_id')
+          .select('company_id, role, store_id')
           .eq('id', user.id)
           .single();
       _companyId = profile['company_id'] as String;
+      _userRole = profile['role'] as String? ?? '';
+      _userStoreId = profile['store_id'] as String?;
+
+      final isAdmin = _userRole == 'admin' || _userRole == 'owner' || _userRole == 'super_admin';
 
       final companyResponse = await _supabase
           .from('companies')
@@ -41,12 +48,18 @@ class _StoresListScreenState extends State<StoresListScreen> {
           .single();
       _maxStores = companyResponse['max_stores'] as int? ?? 1;
 
-      final data = await _supabase
+      var query = _supabase
           .from('locations')
           .select('id, name, parent_id, created_at, address')
           .eq('company_id', _companyId!)
-          .eq('type', 'store')
-          .order('created_at', ascending: false);
+          .eq('type', 'store');
+
+      // Non-admin users: only show stores under their assigned warehouse
+      if (!isAdmin && _userStoreId != null) {
+        query = query.eq('parent_id', _userStoreId!);
+      }
+
+      final data = await query.order('created_at', ascending: false);
 
       // Load warehouse names for each store
       final stores = List<Map<String, dynamic>>.from(data);
@@ -534,7 +547,8 @@ class _StoresListScreenState extends State<StoresListScreen> {
         'name': name,
         'parent_id': parentId,
       }).eq('id', id);
-      _loadStores();
+      await _loadStores();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث المتجر بنجاح'), backgroundColor: Colors.green));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: AppColors.error));
     }
@@ -543,7 +557,8 @@ class _StoresListScreenState extends State<StoresListScreen> {
   Future<void> _deleteStore(String id) async {
     try {
       await _supabase.from('locations').delete().eq('id', id);
-      _loadStores();
+      await _loadStores();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حذف المتجر بنجاح'), backgroundColor: Colors.green));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في الحذف: $e'), backgroundColor: AppColors.error));
     }
@@ -552,6 +567,7 @@ class _StoresListScreenState extends State<StoresListScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isAdmin = _userRole == 'admin' || _userRole == 'owner' || _userRole == 'super_admin';
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -560,11 +576,12 @@ class _StoresListScreenState extends State<StoresListScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          IconButton(
-            tooltip: 'تعديل متجر',
-            onPressed: _showSelectStoreForEdit,
-            icon: const Icon(Icons.edit_rounded, color: AppColors.primary),
-          ),
+          if (isAdmin)
+            IconButton(
+              tooltip: 'تعديل متجر',
+              onPressed: _showSelectStoreForEdit,
+              icon: const Icon(Icons.edit_rounded, color: AppColors.primary),
+            ),
           IconButton(
             tooltip: 'تحديث البيانات',
             onPressed: _loadStores,
@@ -572,14 +589,14 @@ class _StoresListScreenState extends State<StoresListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: isAdmin ? FloatingActionButton.extended(
         heroTag: 'add_store_fab',
         onPressed: _showAddStoreDialog,
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_business_rounded, size: 20),
         label: const Text('متجر جديد', style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
+      ) : null,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -610,7 +627,7 @@ class _StoresListScreenState extends State<StoresListScreen> {
                 : RefreshIndicator(
                     onRefresh: _loadStores,
                     child: GridView.builder(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 180),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
                         childAspectRatio: 0.85,

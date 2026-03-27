@@ -66,12 +66,12 @@ class _AnimatedGlassCardState extends State<AnimatedGlassCard>
     final cardColor = widget.color ??
         (isDark
             ? AppColors.surfaceContainerHigh.withOpacity(widget.opacity)
-            : AppColors.surfaceLight.withOpacity(widget.opacity == 1.0 ? 0.75 : widget.opacity)); // More transparent in light mode for blur
+            : const Color(0xFFF0F4FA).withOpacity(0.95)); // Light: subtle blue-grey tint, nearly opaque
 
     // Ghost Border: subtle whisper boundary
     final borderColor = isDark
         ? AppColors.ghostBorder
-        : AppColors.tertiary.withOpacity(0.1); // Subtly tinted border
+        : const Color(0xFFCBD5E1); // Light: visible slate-300 border
 
     // Ambient shadow: Clean professional drop shadow
     final defaultShadows = isDark
@@ -84,11 +84,17 @@ class _AnimatedGlassCardState extends State<AnimatedGlassCard>
           ]
         : [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04), // Clean, subtle gray
-              blurRadius: 15,
+              color: const Color(0xFF94A3B8).withOpacity(0.18), // slate-400 shadow
+              blurRadius: 12,
               spreadRadius: 0,
-              offset: const Offset(0, 4),
-            )
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: const Color(0xFF64748B).withOpacity(0.08), // deeper shadow layer
+              blurRadius: 24,
+              spreadRadius: -2,
+              offset: const Offset(0, 8),
+            ),
           ];
 
     // Hover glow: primary-tinted expansion
@@ -103,11 +109,17 @@ class _AnimatedGlassCardState extends State<AnimatedGlassCard>
           ]
         : [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08), // Slightly stronger neutral shadow
-              blurRadius: 25,
+              color: const Color(0xFF94A3B8).withOpacity(0.25), // stronger hover
+              blurRadius: 20,
+              spreadRadius: 1,
+              offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.08), // subtle blue glow on hover
+              blurRadius: 30,
               spreadRadius: 2,
-              offset: const Offset(0, 8),
-            )
+              offset: const Offset(0, 10),
+            ),
           ];
 
     Widget cardContent = AnimatedContainer(
